@@ -1,0 +1,95 @@
+version: "3.9"
+
+x-runtime-build: &runtime_build
+  context: .
+  dockerfile: docker/Dockerfile
+  args:
+    ENABLE_SHERPA_ONNX: ${ENABLE_SHERPA_ONNX:-0}
+
+services:
+  manager-server:
+    build:
+      <<: *runtime_build
+    image: xiaozhi-runtime:local
+    environment:
+      RUN_MODE: manager
+      ENABLE_SHERPA_ONNX: ${ENABLE_SHERPA_ONNX:-0}
+      APP_UID: "${UID:-1000}"
+      APP_GID: "${GID:-1000}"
+    ports:
+      - "${MANAGER_PORT:-8007}:8007"
+    volumes:
+      - ./logs:/apps/logs
+      - ./db:/apps/manager-server/db
+    extra_hosts:
+      - "example.localhost:host-gateway"
+      - "host.docker.internal:host-gateway" 
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8007/xiaozhi/health || wget -q -O- http://localhost:8007/xiaozhi/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  backend-server:
+    build:
+      <<: *runtime_build
+    image: xiaozhi-runtime:local
+    environment:
+      RUN_MODE: backend
+      ENABLE_SHERPA_ONNX: ${ENABLE_SHERPA_ONNX:-0}
+      XIAOZHI_WEBSOCKET_FALLBACK_PROXY_URL: http://manager-server:8007
+      XIAOZHI_MANAGER_API_ENABLED: "true"
+      XIAOZHI_MANAGER_API_BASE_URL: http://manager-server:8007/xiaozhi
+      XIAOZHI_MANAGER_API_SECRET: ${MANAGER_API_SECRET:-cc36d3ca-b065-47ef-ae29-d34f7540abd1}
+      APP_UID: "${UID:-1000}"
+      APP_GID: "${GID:-1000}"
+    ports:
+      - "${BACKEND_WS_PORT:-8002}:8002"
+      - "${BACKEND_MQTT_PORT:-2883}:2883"
+      - "${BACKEND_TLS_MQTT_PORT:-8883}:8883"
+      - "${BACKEND_UDP_PORT:-8990}:8990/udp"
+    depends_on:
+      manager-server:
+        condition: service_healthy
+      speech-server:
+        condition: service_healthy
+    volumes:
+      - ./logs:/apps/logs
+    extra_hosts:
+      - "example.localhost:host-gateway"
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8002/health || wget -q -O- http://localhost:8002/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  speech-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile_speech_server
+    image: xiaozhi-speech:local
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      MODELSCOPE_MODEL_ID: ${MODELSCOPE_MODEL_ID:-gomodels/sherpa}
+      MODELSCOPE_REVISION: ${MODELSCOPE_REVISION:-}
+    ports:
+      - "${SPEECH_SERVER_PORT:-8009}:8009"
+    volumes:
+      - ./logs:/app/speech-server/logs
+    extra_hosts:
+      - "example.localhost:host-gateway"
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8009/health || wget -q -O- http://localhost:8009/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+volumes:
+  manager_logs:
+  manager_db:
+  backend_logs:
+  speech_logs:

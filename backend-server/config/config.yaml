@@ -1,0 +1,318 @@
+# 服务器配置
+server:
+  # 性能分析工具配置
+  pprof:
+    enable: false  # 是否启用pprof性能分析
+    port: 6060     # pprof监听端口
+
+# 身份验证配置
+auth:
+  enable: false  # 是否启用身份验证
+
+# 聊天配置
+chat:
+  max_idle_duration: 0         # 最大空闲时间（毫秒）
+  chat_max_silence_duration: 200  # 由有声音转到静音的全局保底阈值（毫秒）
+  session_timeout_minutes: 30      # 会话空闲超时时间（分钟）
+  auto_resume_listening: false    # 是否允许 TTS 结束后自动恢复监听
+  realtime_mode: 2                # 实时打断模式：1=VAD 打断，2=ASR 打断
+  realtime_interrupt_enabled: true # 是否启用 realtime 打断
+
+# 会议纪要配置
+meeting_minutes:
+  enabled: true                  # 是否启用会议纪要模式
+  start_phrase: "开始会议纪要"    # 开始指令
+  stop_phrase: "结束会议纪要"     # 结束指令
+  output_dir: "./data/meeting-minutes" # 会议纪要保存目录
+  kb_id: 0                        # 指定知识库ID（0表示由manager-server自动创建/挂载）
+
+# 日志配置
+log:
+  level: "debug"          # 日志级别（debug/info/warn/error）
+  stdout: true            # 是否输出到控制台
+  file:
+    enabled: true         # 是否启用文件输出
+    path: "./logs"        # 日志文件存储目录
+    name: "backend-server.log" # 日志文件名
+    max_size_mb: 500      # 单个日志文件最大大小（MB）
+    max_age_days: 3       # 日志文件最大保存天数
+    max_backups: 7        # 保留的旧日志文件数量
+    compress: false       # 是否压缩旧日志文件
+
+# Redis数据库配置，用于存储设备配置及聊天历史记录，可选
+redis:
+  host: "example.localhost"      # Redis服务器地址
+  port: 16379             # Redis端口
+  password: "example"    # Redis密码
+  db: 0                  # 使用的数据库编号
+  key_prefix: "xiaozhi"  # 键名前缀
+
+# 内存管理配置
+memory:
+  enabled: "true"  # 是否启用内存功能
+  type: "none"     # 内存类型
+  # 短期记忆配置
+  short_term:
+    enabled: true                    # 是否启用短期记忆
+    provider: "redis"                # 短期记忆提供商
+    max_messages: 50                 # 最大消息数量
+    ttl_seconds: 604800              # 生存时间（秒）
+    compression_enabled: false       # 是否启用压缩
+    redis:
+      host: "example.localhost"      # Redis服务器地址
+      port: 16379                     # Redis端口
+      password: "example"            # Redis密码
+      db: 0                          # 使用的数据库编号
+      key_prefix: "xiaozhi:memory"   # 键名前缀
+  # 长期记忆配置
+  long_term:
+    enabled: true                     # 是否启用长期记忆
+    provider: "manager"              # 长期记忆提供商: manager, memobase, memu, null
+    batch_size: 10                    # 批处理大小
+    flush_interval_seconds: 5         # 刷新间隔（秒）
+    providers:
+      memobase:
+        project_url: "http://example.localhost:8777"           # 项目URL
+        api_key: "example"                               # API密钥
+        timeout_seconds: 30                              # 超时时间（秒）
+        health_check_interval_seconds: 60                # 健康检查间隔（秒）
+      "null":
+        enabled: false                                   # 是否启用null提供商
+  # 混合记忆策略配置
+  hybrid:
+    strategy: "parallel"                  # 策略：parallel
+    short_term_priority: true            # 短期记忆优先级
+    long_term_context_max_tokens: 4000   # 长期记忆上下文最大token数
+
+# WebSocket服务配置
+websocket:
+  host: "0.0.0.0"  # 监听地址，0.0.0.0表示监听所有网卡
+  port: 8002      # WebSocket监听端口
+  fallback_proxy_url: "http://example.localhost:8007"  # WebSocket回退代理地址
+
+# MQTT客户端配置（连接外部MQTT服务器）
+mqtt:
+  enable: true                # 是否启用MQTT客户端, 当此值为false时会同时关闭udp服务器
+  broker: "127.0.0.1"         # MQTT代理服务器地址
+  type: "tcp"                 # 连接类型
+  port: 2883                  # MQTT端口
+  client_id: "xiaozhi_server" # 客户端ID
+  username: "admin"           # MQTT用户名
+  password: "test!@#"         # MQTT密码
+
+# MQTT服务器配置（作为MQTT服务器运行）
+mqtt_server:
+  enable: true                          # 是否启用MQTT服务器
+  listen_host: "0.0.0.0"                # 监听地址
+  listen_port: 2883                     # 监听端口
+  client_id: "xiaozhi_server"           # 服务器客户端ID
+  username: "admin"                     # 默认用户名
+  password: "test!@#"                   # 默认密码
+  signature_key: "your_ota_signature_key_here"  # OTA更新签名密钥
+  enable_auth: false                    # 是否启用身份验证
+  # TLS安全连接配置
+  tls:
+    enable: false                # 是否启用TLS
+    port: 8883                   # TLS端口
+    pem: "config/server.pem"     # 证书文件路径
+    key: "config/server.key"     # 私钥文件路径
+
+# UDP服务配置
+udp:
+  external_host: "127.0.0.1"  # 外部访问地址, hello消息时下发的地址
+  external_port: 8990         # 外部访问端口, hello消息时下发的端口
+  listen_host: "0.0.0.0"      # 监听地址
+  listen_port: 8990           # 监听端口
+
+# 语音活动检测（VAD）配置
+vad:
+  provider: "webrtc_vad"  # VAD提供商：webrtc_vad 或 sherpa_vad（silero_vad 已作为别名保留）
+  # WebRTC VAD配置
+  webrtc_vad:
+    pool_min_size: 5        # 连接池最小大小
+    pool_max_size: 1000     # 连接池最大大小
+    pool_max_idle: 100      # 连接池最大空闲连接数
+    vad_sample_rate: 16000  # VAD采样率
+    vad_mode: 2             # VAD模式（0-3，越高越敏感）
+    noise_floor: 0.01       # 语音激活判定的最小能量阈值（RMS），低于此值视为静音
+    min_active_frames: 2    # 初次判定语音所需的连续有效帧数，防止瞬时噪声触发
+  # Sherpa (Silero) VAD配置
+  sherpa_vad:
+    model_path: "config/models/vad/silero_vad.onnx"  # 模型文件路径
+    sample_rate: 16000                # 采样率
+    num_threads: 1                    # 推理线程数
+    provider: "cpu"                   # 推理设备 cpu/cuda/dml
+    threshold: 0.5                    # 检测阈值
+    min_silence_duration: 0.5         # 最小静默时间（秒）
+    min_silence_duration_ms: 100      # 最小静默时间（毫秒，兼容旧配置）
+    min_speech_duration: 0.25         # 最小语音持续时长（秒）
+    max_speech_duration: 0.0          # 最大语音持续时长（秒，0 表示不限制）
+    window_size: 512                  # VAD窗口大小
+    buffer_size_seconds: 5.0          # VAD内部缓冲区大小（秒）
+
+# 自动语音识别（ASR）配置
+asr:
+  provider: "funasr"  # ASR提供商：funasr/doubao/aliyun/openai_realtime/elevenlabs
+  # FunASR配置
+  funasr:
+    host: "127.0.0.1"          # FunASR服务器地址
+    port: "10096"              # FunASR服务器端口
+    mode: "offline"            # 识别模式：offline/online
+    sample_rate: 16000         # 采样率
+    chunk_size: [5, 10, 5]     # 分块大小配置
+    chunk_interval: 10         # 分块间隔（毫秒）
+    max_connections: 5         # 最大连接数
+    timeout: 30                # 超时时间（秒）
+    auto_end: true             # 是否自动结束
+  elevenlabs:
+    api_key: "api_key"         # ElevenLabs API Key
+    model_id: "scribe_v1"      # 转写模型
+    language_code: "en"        # 可选语言代码，留空自动识别
+    region: ""                 # 可选区域：us / eu，留空使用默认
+    file_format: "pcm_s16le_16" # 输入音频格式
+    sample_rate: 16000         # 输入采样率
+    timeout_seconds: 60        # 请求超时时间（秒）
+
+# 文本转语音（TTS）配置
+tts:
+  provider: "xiaozhi"  # TTS提供商：xiaozhi/doubao/doubao_ws/cosyvoice/edge/edge_offline/openai_realtime/elevenlabs
+  # 小智TTS配置
+  xiaozhi:
+    server_addr: "wss://api.tenclass.net/xiaozhi/v1/"  # 服务器地址                                # 访问令牌
+  elevenlabs:
+    api_key: "api_key"           # ElevenLabs API Key
+    voice_id: "voice_id"         # 语音ID
+    model_id: "eleven_multilingual_v2" # TTS模型
+    output_format: "mp3_44100_128"     # 输出格式，使用流式API
+    optimize_streaming_latency: 0      # 官方延迟优化参数，0-4
+    region: ""                   # 可选区域：us / eu，留空使用默认
+    timeout_seconds: 120         # 请求超时时间（秒）
+
+# 大语言模型（LLM）配置
+llm:
+  provider: "aliyun_qwen"  # 默认使用的LLM提供商
+  # 阿里云通义千问配置
+  aliyun_qwen:
+    type: "openai"                               # 接口类型
+    model_name: "qwen2.5-72b-instruct"          # 模型名称
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"  # API基础地址
+    api_key: "api_key"                           # API密钥
+    max_token: 500                               # 最大生成token数
+
+# 管理API配置
+manager_api:
+  enabled: true                              # 是否启用管理API
+  base_url: "http://example.localhost:8007/xiaozhi" # API基础地址
+  secret: "cc36d3ca-b065-47ef-ae29-d34f7540abd1"  # 密钥
+  health_check_interval_seconds: 5                # 健康检查间隔（秒）
+
+# 视觉识别配置
+vision:
+  enable_auth: false  # 是否启用身份验证
+  vision_url: "auto/xiaozhi/api/vision"  # 下发给设备的 视觉API地址
+  ingest:
+    enabled: false                      # 是否启用视觉流调度
+    base_url: ""                        # 视觉接入服务地址（可选）
+    token: ""                           # 视觉接入服务鉴权（可选）
+    sync_interval_seconds: 20           # 配置拉取间隔
+    snapshot_timeout_seconds: 8         # 截帧超时
+    upload_media: true                  # 是否上传快照
+  sampling:
+    default_interval_ms: 1000           # 默认采样间隔
+    max_inflight: 2                     # 单规则最大并发
+    global_max_inflight: 32             # 全局最大并发
+  backoff:
+    initial_ms: 500                     # 失败初始退避
+    max_ms: 10000                       # 最大退避
+  retention_days: 7                     # 事件保留天数（配合管理端清理策略）
+
+# 生图模型配置
+image:
+  provider: ""
+  openai_image:
+    type: "openai"
+    model: "gpt-image-1"
+    base_url: "https://api.openai.com/v1"
+    api_key: "api_key"
+    response_format: "b64_json"
+    size: "1024x1024"
+    n: 1
+  dashscope_image:
+    type: "dashscope"
+    model: "qwen-image-max"
+    base_url: "https://dashscope.aliyuncs.com/api/v1"
+    api_key: "api_key"
+    size: "1664*928"
+    prompt_extend: true
+    watermark: false
+    negative_prompt: ""
+
+# 生视频模型配置
+video:
+  provider: ""
+  dashscope_video:
+    type: "dashscope"
+    model: "wan2.6-t2v"
+    base_url: "https://dashscope.aliyuncs.com/api/v1"
+    request_path: "/services/aigc/video-generation/video-synthesis"
+    task_path: "/tasks/%s"
+    api_key: "api_key"
+    size: "1280*720"
+    duration: 10
+    shot_type: "multi"
+    prompt_extend: true
+    capabilities: "text_to_video,audio_guided"
+    timeout: 120
+    poll_interval_seconds: 5
+    poll_timeout_seconds: 180
+
+# MCP（模型控制协议）配置
+mcp:
+  # 全局MCP服务器配置
+  global:
+    enabled: true  # 是否启用全局MCP
+    servers:
+      # 文件系统MCP服务器
+      - name: "filesystem"
+        type: "sse"                           # 连接类型：SSE
+        url: "http://localhost:3001/sse"      # 服务器地址
+        enabled: false                        # 是否启用
+    reconnect_interval: 300      # 重连间隔（秒）
+    max_reconnect_attempts: 10   # 最大重连尝试次数
+  # 设备级MCP配置
+  device:
+    enabled: false                           # 是否启用设备MCP
+    websocket_path: "/xiaozhi/mcp/"         # WebSocket路径
+    max_connections_per_device: 5           # 每个设备最大连接数
+
+# 启用欢迎语
+enable_greeting: true
+
+# 欢迎语列表（随机选择）
+greeting_list:
+  - "你好，很高兴认识你。"
+  - "你好，今天有啥好玩的。"
+  - "你好，有什么需要帮助的。"
+
+# 唤醒词列表
+wakeup_words:
+  - "小智"
+  - "小知"
+  - "你好小智"
+  - "你好小星"
+  - "你好小鑫"
+  - "小龙小龙"
+  - "喵喵同学"
+  - "小冰"
+  - "小冰小冰"
+  - "hi, lily"
+  - "lily"
+  - "莉莉"
+
+# 唤醒词匹配策略
+wakeup_word_match:
+  enable_pinyin_fuzzy: true
+  max_pinyin_distance: 1
+
+# 音乐播放配置已移除
+# 请在 Manager-Server 智能体 metadata 中配置 SubsonicURL

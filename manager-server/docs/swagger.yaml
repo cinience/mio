@@ -1,0 +1,585 @@
+basePath: /xiaozhi
+definitions:
+  models.CommonResponse:
+    properties:
+      code:
+        type: integer
+      data: {}
+      msg:
+        type: string
+    type: object
+  models.DeviceEntity:
+    properties:
+      agentId:
+        type: string
+      alias:
+        type: string
+      appVersion:
+        type: string
+      autoUpdate:
+        type: integer
+      board:
+        type: string
+      createDate:
+        type: string
+      creator:
+        type: integer
+      id:
+        type: string
+      lastConnectedAt:
+        type: string
+      macAddress:
+        type: string
+      sort:
+        type: integer
+      updateDate:
+        type: string
+      updater:
+        type: integer
+      usageSeconds:
+        description: 新增专门的使用时长统计字段
+        type: integer
+      userId:
+        type: integer
+    type: object
+  models.DeviceManualAddDTO:
+    properties:
+      agentId:
+        minLength: 1
+        type: string
+      alias:
+        maxLength: 100
+        type: string
+      appVersion:
+        maxLength: 50
+        type: string
+      board:
+        maxLength: 50
+        type: string
+      macAddress:
+        maxLength: 20
+        minLength: 1
+        type: string
+    required:
+    - agentId
+    - macAddress
+    type: object
+  models.DeviceRegisterDTO:
+    properties:
+      macAddress:
+        maxLength: 20
+        minLength: 1
+        type: string
+    required:
+    - macAddress
+    type: object
+  models.DeviceStatusReportDTO:
+    properties:
+      appVersion:
+        description: 固件版本号（可选更新）
+        maxLength: 20
+        type: string
+      deviceId:
+        description: 设备ID
+        type: string
+      isOnline:
+        description: 设备在线状态
+        type: boolean
+      sessionDuration:
+        description: 本次会话使用时长（秒）
+        minimum: 0
+        type: integer
+    required:
+    - deviceId
+    - sessionDuration
+    type: object
+  models.DeviceUnBindDTO:
+    properties:
+      deviceId:
+        type: string
+    required:
+    - deviceId
+    type: object
+  models.DeviceUpdateDTO:
+    properties:
+      alias:
+        maxLength: 100
+        type: string
+      autoUpdate:
+        enum:
+        - 0
+        - 1
+        type: integer
+      sort:
+        type: integer
+    type: object
+  models.DeviceWithUserInfoDTO:
+    properties:
+      agentId:
+        type: string
+      agentName:
+        description: 智能体名称
+        type: string
+      alias:
+        type: string
+      appVersion:
+        type: string
+      board:
+        type: string
+      createDate:
+        type: string
+      creator:
+        type: integer
+      id:
+        type: string
+      isOnline:
+        description: 当前在线状态
+        type: boolean
+      lastConnectedAt:
+        type: string
+      macAddress:
+        type: string
+      offlineDuration:
+        description: 离线时长
+        type: string
+      totalDays:
+        description: 注册总天数
+        type: integer
+      updateDate:
+        type: string
+      updater:
+        type: integer
+      usageDuration:
+        description: 使用时长统计字段（不映射数据库字段）
+        type: string
+      usageSeconds:
+        description: 累计使用时长(秒)
+        type: integer
+      userId:
+        type: integer
+      username:
+        description: 用户名
+        type: string
+    type: object
+  models.PageResult:
+    properties:
+      currPage:
+        type: integer
+      list:
+        items: {}
+        type: array
+      pageSize:
+        type: integer
+      totalCount:
+        type: integer
+      totalPage:
+        type: integer
+    type: object
+host: localhost:8003
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: 小智ESP32设备管理系统API文档
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: 小智设备管理API
+  version: "1.0"
+paths:
+  /device/{id}:
+    put:
+      consumes:
+      - application/json
+      description: 更新指定设备的信息
+      parameters:
+      - description: 设备ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 设备更新信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeviceUpdateDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: 更新设备信息
+      tags:
+      - device
+  /device/admin/page:
+    get:
+      consumes:
+      - application/json
+      description: 管理员分页查询所有设备信息，包含用户信息
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keywords
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.CommonResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PageResult'
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: 分页查询所有设备
+      tags:
+      - device
+  /device/bind/{agentId}:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前用户在指定智能体下的设备列表。系统密钥可获取所有设备，普通用户只能获取自己的设备
+      parameters:
+      - description: 智能体ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.CommonResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.DeviceEntity'
+                  type: array
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取用户设备列表
+      tags:
+      - device
+    post:
+      consumes:
+      - application/json
+      description: 获取用户设备状态并转发到MQTT网关
+      parameters:
+      - description: 智能体ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: 请求体
+        in: body
+        name: body
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "500":
+          description: 内部错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+      summary: 转发POST请求到MQTT网关
+      tags:
+      - device
+  /device/bind/{agentId}/{deviceCode}:
+    post:
+      consumes:
+      - application/json
+      description: 将设备绑定到指定智能体
+      parameters:
+      - description: 智能体ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: 设备激活码
+        in: path
+        name: deviceCode
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 绑定成功
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: 绑定设备
+      tags:
+      - device
+  /device/info/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定设备的详细信息，包含使用时长统计。系统密钥可查看任意设备，普通用户只能查看自己的设备
+      parameters:
+      - description: 设备ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.CommonResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DeviceWithUserInfoDTO'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "403":
+          description: 无权限访问
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "404":
+          description: 设备不存在
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取设备详细信息
+      tags:
+      - device
+  /device/manual-add:
+    post:
+      consumes:
+      - application/json
+      description: 管理员手动添加设备到系统
+      parameters:
+      - description: 设备添加信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeviceManualAddDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 添加成功
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: 手动添加设备
+      tags:
+      - device
+  /device/register:
+    post:
+      consumes:
+      - application/json
+      description: 注册新设备到系统
+      parameters:
+      - description: 设备注册信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeviceRegisterDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 注册成功
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+      summary: 注册设备
+      tags:
+      - device
+  /device/report-status:
+    post:
+      consumes:
+      - application/json
+      description: 设备上报使用时长和在线状态。支持系统密钥和用户token认证
+      parameters:
+      - description: 设备状态信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeviceStatusReportDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 上报成功
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "404":
+          description: 设备不存在
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: 上报设备状态
+      tags:
+      - device
+  /device/unbind:
+    post:
+      consumes:
+      - application/json
+      description: 解除设备与用户的绑定关系
+      parameters:
+      - description: 解绑设备信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeviceUnBindDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 解绑成功
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: 解绑设备
+      tags:
+      - device
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

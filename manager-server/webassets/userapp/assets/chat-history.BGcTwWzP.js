@@ -1,0 +1,1 @@
+import{am as a}from"./index-CEhjVZqx.js";function o(t,e){return a.Get(`/agent/${t}/sessions`,{params:e,meta:{ignoreAuth:!1,toast:!1},cacheFor:{expire:0}})}function n(t,e){return a.Get(`/agent/${t}/chat-history/${e}`,{meta:{ignoreAuth:!1,toast:!1}})}function r(t){return a.Post(`/agent/audio/${t}`,{},{meta:{ignoreAuth:!1,toast:!1}})}export{r as a,o as b,n as g};

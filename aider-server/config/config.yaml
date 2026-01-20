@@ -1,0 +1,72 @@
+listen_addr: "0.0.0.0:8099"
+data_dir: "./data"
+log_retention_seconds: 86400
+execution_mode: "local"
+allowed_binaries:
+  - "codex"
+  - "claude"
+  - "iflow"
+  - "gemini"
+
+default_env:
+  PATH: "/usr/local/bin:/usr/bin:/bin"
+
+auth:
+  token: ""
+
+runner:
+  enabled: false
+  server_addr: "127.0.0.1:8099"
+  runner_id: ""
+  log_dir: "./data/runner-logs"
+  auth_token: ""
+  dial_timeout_seconds: 5
+  heartbeat_seconds: 10
+  log_batch_size: 50
+  log_backfill_batch_size: 200
+  log_max_bytes: 10485760
+  log_max_backups: 5
+  exit_on_complete: true
+  launch_command: ""
+  launch_args: []
+  launch_timeout_seconds: 10
+  launch_detach: true
+
+redis:
+  addr: "127.0.0.1:6379"
+  db: 0
+  password: ""
+  key_prefix: "aider"
+  embedded:
+    enabled: true
+    addr: "127.0.0.1:26371"
+    data_dir: "./data/redis"
+    log_dir: "./logs/redis"
+    max_clients: 1000
+    aof_enabled: true
+    aof_filename: "appendonly.aof"
+    aof_fsync: "everysec"
+    aof_use_rdb_preamble: true
+
+adapters:
+  codex:
+    command: "codex"
+    args: []
+  claude:
+    command: "claude"
+    args:
+      - "code"
+  iflow:
+    command: "iflow"
+    args: []
+  gemini-cli:
+    command: "gemini"
+    args: []
+
+codex:
+  default_protocol: "pty"
+  app_server:
+    command: "codex"
+    args:
+      - "app-server"
+    env: {}

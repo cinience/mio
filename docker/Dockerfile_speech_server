@@ -1,0 +1,94 @@
+ARG BUILDER_BASE_IMAGE=registry.cn-shanghai.aliyuncs.com/dapp/xiaozhi:ubuntu-runtime-build
+FROM ${BUILDER_BASE_IMAGE} AS builder
+
+ARG GO_VERSION=1.25.0
+ARG TARGETARCH
+
+WORKDIR /workspace/speech-server
+
+RUN if command -v go >/dev/null; then \
+        echo "Go already installed, skip download"; \
+    else \
+        wget -q -O /tmp/go.tgz "https://mirrors.aliyun.com/golang/go${GO_VERSION}.linux-amd64.tar.gz" && \
+        rm -rf /usr/local/go && \
+        tar -C /usr/local -xzf /tmp/go.tgz && \
+        rm /tmp/go.tgz; \
+    fi
+
+ENV PATH=/usr/local/go/bin:$PATH
+ENV GOPROXY=https://goproxy.cn,direct
+ENV CGO_ENABLED=1
+
+# Pre-fetch module metadata only (no source yet) so we can pull the vendored sherpa libs.
+COPY speech-server/go.mod ./
+COPY speech-server/go.sum ./
+RUN go mod download
+
+# Extract sherpa-onnx’s bundled .so files for the target architecture; these carry the pinned ORT ABI.
+RUN set -eux; \
+    sherpa_dir="$(go list -f '{{.Dir}}' -m github.com/k2-fsa/sherpa-onnx-go-linux)"; \
+    arch="${TARGETARCH:-amd64}"; \
+    case "${arch}" in \
+        amd64) sherpa_subdir="x86_64-unknown-linux-gnu" ;; \
+        arm64) sherpa_subdir="aarch64-unknown-linux-gnu" ;; \
+        arm) sherpa_subdir="arm-unknown-linux-gnueabihf" ;; \
+        *) echo "Unsupported TARGETARCH ${arch}" >&2; exit 1 ;; \
+    esac; \
+    mkdir -p /workspace/sherpa-libs; \
+    cp "${sherpa_dir}/lib/${sherpa_subdir}/"*.so /workspace/sherpa-libs/
+
+# Pull in the actual source and build the binary.
+COPY speech-server/ ./
+
+RUN mkdir -p /workspace/bin
+
+RUN go build -trimpath -ldflags="-s -w" -o /workspace/bin/speech-server ./cmd/server
+
+FROM registry.cn-shanghai.aliyuncs.com/dapp/xiaozhi:ubuntu-runtime-base
+
+WORKDIR /app/speech-server
+
+ARG MODELSCOPE_MODEL_ID=gomodels/sherpa
+ARG MODELSCOPE_REVISION=""
+ARG MODEL_DIR_NAME=sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
+ENV MODELSCOPE_MODEL_ID=${MODELSCOPE_MODEL_ID}
+ENV MODELSCOPE_REVISION=${MODELSCOPE_REVISION}
+ENV MODEL_DIR_NAME=${MODEL_DIR_NAME}
+
+RUN mkdir -p models logs
+
+RUN python3 -m venv /opt/modelscope && \
+    . /opt/modelscope/bin/activate && \
+    pip install --upgrade pip && \
+    pip install --no-cache-dir "modelscope>=1.15.0"
+ENV PATH="/opt/modelscope/bin:${PATH}"
+
+RUN set -eux; \
+    tmp_cache="$(mktemp -d)"; \
+    mkdir -p "/app/speech-server/models"; \
+    download_args="download --model ${MODELSCOPE_MODEL_ID} --local_dir /app/speech-server/models --cache_dir ${tmp_cache}"; \
+    if [ -n "${MODELSCOPE_REVISION}" ]; then \
+        download_args="${download_args} --revision ${MODELSCOPE_REVISION}"; \
+    fi; \
+    modelscope ${download_args}; \
+    rm -rf "${tmp_cache}"; \
+    if [ ! -f "/app/speech-server/models/${MODEL_DIR_NAME}/tokens.txt" ]; then \
+        echo "Expected tokens file missing after ModelScope download" >&2; \
+        ls -R /app/speech-server/models >&2; \
+        exit 1; \
+    fi
+
+COPY --from=builder /workspace/bin/speech-server /usr/local/bin/speech-server
+
+COPY speech-server/config ./config
+RUN rm -f /usr/local/lib/libonnxruntime.so*
+COPY --from=builder /workspace/sherpa-libs/ /usr/local/lib/
+# The new ld cache ensures we load the module-pinned ORT + sherpa binaries at runtime.
+RUN ldconfig
+
+VOLUME ["/app/speech-server/logs"]
+
+EXPOSE 8009
+
+ENTRYPOINT ["/usr/local/bin/speech-server"]
+CMD ["--config", "config/config.yaml"]

@@ -1,0 +1,413 @@
+# 服务器配置
+server:
+  port: 8007
+  mode: release  # debug, release, test
+
+# 数据库配置
+database:
+  dsn: "sqlite:///./db/manager-server.db?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
+  max_idle_conns: 10
+  max_open_conns: 100
+  # PostgreSQL 示例:
+  #dsn: "postgres://example:example@example.localhost:15432/example?sslmode=disable&TimeZone=Asia/Shanghai"
+  # MySQL 示例:
+  #dsn: "mysql://example:example@example.localhost:3306/xiaozhi?parseTime=true&loc=Asia%2FShanghai"
+
+# 日志配置
+log:
+  level: "debug"          # 日志级别（debug/info/warn/error）
+  stdout: true            # 是否输出到控制台
+  file:
+    enabled: true         # 是否启用文件输出
+    path: "./logs"        # 日志文件存储目录
+    name: "manager-server.log" # 日志文件名
+    max_size_mb: 500      # 单个日志文件最大大小（MB）
+    max_age_days: 3       # 日志文件最大保存天数
+    max_backups: 7        # 保留的旧日志文件数量
+    compress: false       # 是否压缩旧日志文件
+
+# JWT 配置
+jwt:
+  secret: xiaozhi-jwt-secret-key
+  expire_time: 7200  # 2小时，单位：秒
+
+# 视觉配置
+vision:
+  secret_key: ""  # 视觉来源密码加密密钥，留空时回退使用 jwt.secret
+  retention_days: 7
+  cleanup_interval_minutes: 60
+
+# 工作流运行时配置
+workflow_runtime:
+  base_url: "http://localhost:8002/xiaozhi/api"
+  api_token: ""
+  timeout_seconds: 15
+
+# 长记忆配置
+memory:
+  long_term:
+    enabled: true
+    provider: memobase  # 支持的提供者: memobase, null
+    providers:
+      memobase:
+        project_url: "http://example.localhost:8777"  # Memobase项目URL，如: https://your-memobase-instance.com
+        api_key: "example"      # Memobase API密钥
+        timeout: 30      # 请求超时时间（秒）
+        retry_count: 3   # 重试次数
+      memu:
+        base_url: "https://memu.example.com/api/"  # MemU 服务地址
+        api_key: "example-api-key"                 # MemU API密钥
+        agent_id: "xiaozhi-assistant"              # 代理ID
+        agent_name: "Xiaozhi Assistant"            # 代理名称
+        user_name_prefix: "device-"                # 用户名前缀，可选
+        timeout_ms: 20000                          # 请求超时时间（毫秒）
+
+# 知识库配置
+knowledge_base:
+  ingestion:
+    enabled: true
+    default_chunk_size: 1000
+    default_chunk_overlap: 120
+    supported_source_type:
+      - "manual"
+      - "url"
+      - "file"
+    session_ttl_minutes: 30
+    quota:
+      # 设置为 0 表示不限制配额
+      max_documents_per_day: 0
+      max_bytes_per_day: 0
+      max_concurrent_jobs: 0
+    retry:
+      max_attempts: 3
+      backoff_seconds:
+        - 60
+        - 300
+        - 900
+    webhook:
+      enabled: false
+      signing_secret: ""
+      allowed_cidrs: []
+    connectors:
+      url:
+        enabled: true
+        display_name: "Web URL"
+        description: "Fetch a specific web page via HTTP."
+        categories:
+          - "basic"
+        params_schema:
+          - key: "url"
+            label: "URL"
+            type: "text"
+            required: true
+            placeholder: "https://example.com"
+        metadata_schema:
+          - key: "title"
+            label: "Preferred Title"
+            type: "text"
+            required: false
+            placeholder: ""
+      rss:
+        enabled: true
+        display_name: "RSS Feed"
+        description: "Subscribe to RSS/Atom feeds and ingest new entries."
+        categories:
+          - "basic"
+        params_schema:
+          - key: "url"
+            label: "Feed URL"
+            type: "text"
+            required: true
+            placeholder: "https://example.com/feed.xml"
+      sitemap:
+        enabled: true
+        display_name: "Sitemap"
+        description: "Discover multiple pages from sitemap.xml."
+        categories:
+          - "basic"
+        params_schema:
+          - key: "url"
+            label: "Sitemap URL"
+            type: "text"
+            required: true
+            placeholder: "https://example.com/sitemap.xml"
+      feishu:
+        enabled: true
+        display_name: "Feishu Docs"
+        description: "同步飞书知识库或云文档内容"
+        categories:
+          - "cloud"
+        supports_oauth: true
+        oauth_provider: "feishu"
+        supports_webhook: true
+        params_schema:
+          - key: "spaceId"
+            label: "Space ID"
+            type: "text"
+            required: true
+            placeholder: "ou_xxxxxx"
+        credential_schema:
+          - key: "appId"
+            label: "App ID"
+            type: "text"
+            required: true
+          - key: "appSecret"
+            label: "App Secret"
+            type: "password"
+            required: true
+      notion:
+        enabled: true
+        display_name: "Notion"
+        description: "Import Notion databases or pages."
+        categories:
+          - "cloud"
+        supports_oauth: true
+        oauth_provider: "notion"
+        params_schema:
+          - key: "workspaceId"
+            label: "Workspace ID"
+            type: "text"
+            required: false
+            placeholder: ""
+        credential_schema:
+          - key: "integrationToken"
+            label: "Integration Token"
+            type: "password"
+            required: true
+        metadata_schema:
+          - key: "databaseId"
+            label: "Database/Page ID"
+            type: "text"
+            required: true
+            placeholder: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      yuque:
+        enabled: true
+        display_name: "Yuque"
+        description: "同步语雀知识库空间与文档。"
+        categories:
+          - "cloud"
+          - "cn"
+        params_schema:
+          - key: "namespace"
+            label: "Namespace"
+            type: "text"
+            required: true
+            placeholder: "team/repository"
+        credential_schema:
+          - key: "token"
+            label: "Access Token"
+            type: "password"
+            required: true
+        metadata_schema:
+          - key: "onlyPublished"
+            label: "仅同步已发布"
+            type: "select"
+            required: false
+            options:
+              - label: "是"
+                value: "true"
+              - label: "否"
+                value: "false"
+      confluence:
+        enabled: true
+        display_name: "Atlassian Confluence"
+        description: "Sync pages and spaces from Confluence Cloud or Server."
+        categories:
+          - "enterprise"
+          - "docs"
+        supports_webhook: true
+        params_schema:
+          - key: "baseUrl"
+            label: "Base URL"
+            type: "text"
+            required: true
+            placeholder: "https://your-domain.atlassian.net/wiki"
+          - key: "spaceKey"
+            label: "Space Key"
+            type: "text"
+            required: false
+        credential_schema:
+          - key: "username"
+            label: "用户名 / Email"
+            type: "text"
+            required: true
+          - key: "apiToken"
+            label: "API Token"
+            type: "password"
+            required: true
+      wikijs:
+        enabled: true
+        display_name: "Wiki.js"
+        description: "Pull published pages from a Wiki.js project."
+        categories:
+          - "docs"
+          - "self-hosted"
+        params_schema:
+          - key: "baseUrl"
+            label: "Base URL"
+            type: "text"
+            required: true
+            placeholder: "https://wiki.example.com"
+        credential_schema:
+          - key: "token"
+            label: "API Token"
+            type: "password"
+            required: true
+      mindoc:
+        enabled: true
+        display_name: "Mindoc"
+        description: "导入 Mindoc 文档库。"
+        categories:
+          - "docs"
+          - "self-hosted"
+        params_schema:
+          - key: "baseUrl"
+            label: "Base URL"
+            type: "text"
+            required: true
+            placeholder: "https://mindoc.example.com"
+          - key: "bookId"
+            label: "Book ID"
+            type: "text"
+            required: false
+        credential_schema:
+          - key: "token"
+            label: "Access Token"
+            type: "password"
+            required: true
+      siyuan:
+        enabled: true
+        display_name: "SiYuan"
+        description: "同步思源笔记内容。"
+        categories:
+          - "notes"
+          - "self-hosted"
+        params_schema:
+          - key: "apiEndpoint"
+            label: "API Endpoint"
+            type: "text"
+            required: true
+            placeholder: "http://127.0.0.1:6806"
+        credential_schema:
+          - key: "token"
+            label: "API Token"
+            type: "password"
+            required: true
+      gitbook:
+        enabled: true
+        display_name: "GitBook"
+        description: "Import spaces from GitBook."
+        categories:
+          - "docs"
+          - "cloud"
+        params_schema:
+          - key: "spaceId"
+            label: "Space ID"
+            type: "text"
+            required: true
+            placeholder: "XXXXXXXXXXXX"
+        credential_schema:
+          - key: "token"
+            label: "API Token"
+            type: "password"
+            required: true
+      github:
+        enabled: true
+        display_name: "GitHub Repository"
+        description: "Fetch markdown documentation from a GitHub repository."
+        categories:
+          - "developer"
+        params_schema:
+          - key: "owner"
+            label: "Repository Owner"
+            type: "text"
+            required: true
+          - key: "repo"
+            label: "Repository Name"
+            type: "text"
+            required: true
+          - key: "branch"
+            label: "Branch"
+            type: "text"
+            required: false
+            placeholder: "main"
+        credential_schema:
+          - key: "token"
+            label: "Personal Access Token"
+            type: "password"
+            required: false
+    crawler:
+      mode: "embedded"
+      base_url: ""
+      upload_url: ""
+      api_key: ""
+      request_timeout_seconds: 30
+  vector_store:
+    provider: "memory"  # memory, es, pgvector
+    pgvector:
+      distance_metric: "cosine"   # cosine, euclidean, inner_product
+      batch_size: 200
+  es8:
+    enabled: false
+    index: "kb_chunks"
+    score_threshold: 1.1
+    default_top_k: 5
+    elasticsearch:
+      addresses:
+        - "http://127.0.0.1:9200"
+      username: ""
+      password: ""
+      api_key: ""
+      ca_cert_path: ""
+    models:
+      api_key: ""
+      base_url: ""
+      embedding_model: "text-embedding-3-large"
+      chat_model: "gpt-4o-mini"
+
+# 播客中心配置
+audio:
+  storage:
+    provider: "local"
+    local_path: "./storage/audio"
+    max_file_size_mb: 512
+    quota_mb: 20480
+    allowed_formats:
+      - ".mp3"
+      - ".m4a"
+      - ".aac"
+      - ".wav"
+      - ".flac"
+  transcoding:
+    enabled: true
+    format: "mp3"
+    bitrate: 192000
+  token:
+    secret: "change-me"
+    ttl_seconds: 900
+  download_timeout_seconds: 120
+
+# 媒体库配置
+media:
+  storage:
+    provider: "local"
+    local_path: "./storage/media"
+    base_url: ""
+    max_file_size_mb: 256
+    allowed_formats:
+      - ".jpg"
+      - ".jpeg"
+      - ".png"
+      - ".gif"
+      - ".webp"
+      - ".mp4"
+      - ".mov"
+      - ".avi"
+      - ".mkv"
+      - ".webm"
+      - ".wav"
+      - ".mp3"
+      - ".aac"
+      - ".m4a"
+      - ".ogg"
+      - ".flac"

@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  aio-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile_aio
+    ports:
+      - "8002:8002"
+      - "8007:8007"
+      - "8009:8009"
+    environment:
+      XIAOZHI_ENABLE_SESSION_LOG: "true"
+      XIAOZHI_DATABASE_DSN: "sqlite:///app/db/manager-server.db?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
+    volumes:
+      - ../db:/app/db
+      - ../logs:/app/logs
+      - ../speech-server/models:/app/speech-server/models
+    restart: unless-stopped

@@ -1,0 +1,12 @@
+### POST request to example server
+POST http://127.0.0.1:8002/xiaozhi/config/agent-models
+Content-Type: application/json
+Authorization: Bearer cc36d3ca-b065-47ef-ae29-d34f7540abd1
+
+{
+    "macAddress": "60:a5:e2:cc:3d:7d",
+    "clientId": "60:a5:e2:cc:3d:7d",
+    "selectedModule": {
+    }
+}
+###

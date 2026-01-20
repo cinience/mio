@@ -1,0 +1,99 @@
+# Multi-stage build for aio-server with embedded speech-server support
+ARG BUILDER_BASE_IMAGE=registry.cn-shanghai.aliyuncs.com/dapp/xiaozhi:ubuntu-runtime-build
+ARG SERVER_VERSION="unknown"
+FROM ${BUILDER_BASE_IMAGE} AS builder
+
+ARG GO_VERSION=1.25.0
+ARG TARGETARCH
+ARG SERVER_VERSION
+
+WORKDIR /workspace
+
+RUN if command -v go >/dev/null; then \
+        echo "Go already installed, skip"; \
+    else \
+        wget -q -O /tmp/go.tgz "https://mirrors.aliyun.com/golang/go${GO_VERSION}.linux-amd64.tar.gz" && \
+        rm -rf /usr/local/go && \
+        tar -C /usr/local -xzf /tmp/go.tgz && \
+        rm /tmp/go.tgz; \
+    fi
+
+ENV PATH=/usr/local/go/bin:$PATH \
+    GOPROXY=https://goproxy.cn,direct \
+    CGO_ENABLED=1
+
+# copy entire repository (go modules rely on replace directives)
+COPY . .
+
+RUN cd /workspace/speech-server && \
+    go mod download && \
+    sherpa_dir="$(go list -f '{{.Dir}}' -m github.com/k2-fsa/sherpa-onnx-go-linux)" && \
+    arch="${TARGETARCH:-amd64}" && \
+    case "${arch}" in \
+        amd64) sherpa_subdir="x86_64-unknown-linux-gnu" ;; \
+        arm64) sherpa_subdir="aarch64-unknown-linux-gnu" ;; \
+        arm) sherpa_subdir="arm-unknown-linux-gnueabihf" ;; \
+        *) echo "Unsupported TARGETARCH ${arch}" >&2; exit 1 ;; \
+    esac && \
+    mkdir -p /workspace/sherpa-libs && \
+    cp "${sherpa_dir}/lib/${sherpa_subdir}/"*.so /workspace/sherpa-libs/
+
+RUN mkdir -p /workspace/bin && \
+    cd /workspace/aio-server && \
+    go build -tags sherpa_onnx -trimpath -ldflags="-s -w -X 'main.version=${SERVER_VERSION}'" -o /workspace/bin/aio-server ./cmd/server
+
+# runtime image
+FROM registry.cn-shanghai.aliyuncs.com/dapp/xiaozhi:ubuntu-runtime-base
+
+ARG MODELSCOPE_MODEL_ID=gomodels/sherpa
+ARG MODELSCOPE_REVISION=""
+ARG MODEL_CACHE_BUSTER=0
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg git git-lfs && \
+    rm -rf /var/lib/apt/lists/* && \
+    git lfs install --skip-repo
+
+RUN mkdir -p /app/logs /app/db /app/models
+
+RUN python3 -m venv /opt/modelscope && \
+    . /opt/modelscope/bin/activate && \
+    pip install --upgrade pip && \
+    pip install --no-cache-dir "modelscope>=1.15.0"
+ENV PATH="/opt/modelscope/bin:${PATH}"
+
+RUN set -eux; \
+    echo "model cache buster: ${MODEL_CACHE_BUSTER}" >/dev/null; \
+    mkdir -p "/app/models"; \
+    tmp_cache="$(mktemp -d)"; \
+    download_args="download --model ${MODELSCOPE_MODEL_ID} --local_dir /app/models --cache_dir ${tmp_cache}"; \
+    if [ -n "${MODELSCOPE_REVISION}" ]; then \
+        download_args="${download_args} --revision ${MODELSCOPE_REVISION}"; \
+    fi; \
+    echo "modelscope ${download_args}"; \
+    modelscope ${download_args}; \
+    rm -rf "${tmp_cache}"; \
+    if [ -d "/app/models/${MODELSCOPE_MODEL_ID}" ]; then \
+        cp -a "/app/models/${MODELSCOPE_MODEL_ID}/." "/app/models/"; \
+        rm -rf "/app/models/${MODELSCOPE_MODEL_ID}"; \
+    fi; \
+    echo "models downloaded:"; \
+    ls -la /app/models;
+
+ENV XIAOZHI_ENABLE_SESSION_LOG=true \
+    XIAOZHI_DATABASE_DSN="sqlite:///app/db/manager-server.db?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
+
+RUN rm -f /usr/local/lib/libonnxruntime.so*
+COPY --from=builder /workspace/sherpa-libs/ /usr/local/lib/
+RUN ldconfig
+
+COPY --from=builder /workspace/bin/aio-server /usr/local/bin/aio-server
+COPY backend-server/config ./backend-server/config
+COPY manager-server/config ./manager-server/config
+COPY speech-server/config ./speech-server/config
+
+EXPOSE 8002
+
+ENTRYPOINT ["/usr/local/bin/aio-server"]

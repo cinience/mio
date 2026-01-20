@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>aider-server 控制台</title>
+  <link rel="stylesheet" href="/vendor/xterm/xterm.min.css" />
+  <style>
+    :root {
+      --bg: #f7f1e8;
+      --panel: #ffffff;
+      --ink: #1b1b1b;
+      --muted: #5c5c5c;
+      --accent: #e86a33;
+      --accent-2: #2c6e7a;
+      --shadow: 0 24px 60px rgba(27, 27, 27, 0.12);
+      --radius: 18px;
+      --radius-sm: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(232, 106, 51, 0.18), transparent 50%),
+        radial-gradient(circle at 20% 30%, rgba(44, 110, 122, 0.2), transparent 55%),
+        linear-gradient(130deg, #f9f2e7 0%, #f7f1e8 40%, #f3e9dc 100%);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 48px 20px 64px;
+    }
+
+    .shell {
+      width: min(1200px, 100%);
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.1fr);
+      gap: 24px;
+    }
+
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: clamp(28px, 2.8vw, 40px);
+      margin: 0;
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+    }
+
+    .status-pill {
+      background: var(--panel);
+      padding: 10px 16px;
+      border-radius: 999px;
+      box-shadow: var(--shadow);
+      font-size: 14px;
+      color: var(--muted);
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #c1c1c1;
+    }
+
+    .dot.ok {
+      background: #38a169;
+    }
+
+    section {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+
+    .section-title {
+      font-size: 18px;
+      margin: 0 0 16px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid #e0d7ce;
+      font-family: inherit;
+      font-size: 14px;
+      background: #faf7f2;
+      color: var(--ink);
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(232, 106, 51, 0.3);
+    }
+
+    button.secondary {
+      background: #f1ece6;
+      color: var(--ink);
+      border: 1px solid #e3d8cd;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(27, 27, 27, 0.12);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .task-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .task-card {
+      border: 1px solid #ece3da;
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: #fffaf3;
+      display: grid;
+      gap: 6px;
+    }
+
+    .task-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .task-actions button {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .task-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .badge {
+      background: rgba(44, 110, 122, 0.1);
+      color: var(--accent-2);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+
+    .terminal-shell {
+      background: #0f1a1f;
+      border-radius: 16px;
+      padding: 8px;
+      height: 360px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .log-panel {
+      background: #111318;
+      color: #e3e8f0;
+      border-radius: 16px;
+      padding: 14px;
+      height: 220px;
+      overflow: auto;
+      font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+      font-size: 12px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .pill-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .pill {
+      border: 1px dashed #d8cfc6;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .toast-root {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: grid;
+      gap: 8px;
+      z-index: 9999;
+    }
+
+    .toast {
+      background: #1b1b1b;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(-6px);
+      animation: toast-in 0.2s ease forwards;
+    }
+
+    .toast.error {
+      background: #b42318;
+    }
+
+    .toast.hide {
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    @keyframes toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 960px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>aider-server 控制台</h1>
+        <p>轻量界面：创建任务、查看状态、连接交互式终端。</p>
+      </div>
+      <div class="status-pill" id="health-pill">
+        <span class="dot" id="health-dot"></span>
+        <span id="health-text">健康检查中...</span>
+      </div>
+    </header>
+
+    <section>
+      <h2 class="section-title">创建任务</h2>
+      <div class="row">
+        <div>
+          <label for="client">客户端</label>
+          <select id="client">
+            <option value="codex">codex</option>
+            <option value="claude">claude</option>
+            <option value="iflow" selected>iflow</option>
+            <option value="gemini-cli">gemini-cli</option>
+          </select>
+        </div>
+        <div>
+          <label for="args">命令参数（空格分隔）</label>
+          <input id="args" placeholder="例如: --help" />
+        </div>
+      </div>
+      <div class="row" id="protocol-row" style="display: none;">
+        <div>
+          <label for="protocol">协议通道</label>
+          <select id="protocol">
+            <option value="pty" selected>PTY（终端）</option>
+            <option value="app-server">App Server（JSON-RPC）</option>
+          </select>
+          <div class="hint">仅 codex 可用，App Server 适合结构化事件输出。</div>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="prompt">任务内容</label>
+          <textarea id="prompt" placeholder="要交给客户端处理的内容...">现在什么时间？</textarea>
+        </div>
+        <div>
+          <label for="mode">运行模式</label>
+          <select id="mode">
+            <option value="non-interactive" selected>非交互（自动带上必要参数）</option>
+            <option value="interactive">交互（终端就绪后自动输入）</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="labels">标签（key=value, 用逗号分隔）</label>
+          <input id="labels" placeholder="team=core, env=dev" />
+        </div>
+        <div>
+          <label for="env">环境变量（key=value, 用逗号分隔）</label>
+          <input id="env" placeholder="PATH=/usr/bin" />
+        </div>
+      </div>
+      <div>
+        <label for="note">任务描述（仅备注，不发送）</label>
+        <textarea id="note" placeholder="记录任务目标，方便团队协作..." disabled></textarea>
+      </div>
+      <div class="actions">
+        <button class="primary" id="create-task">创建任务</button>
+        <button class="secondary" id="refresh-tasks">刷新列表</button>
+      </div>
+      <div class="pill-row" id="create-result"></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">任务列表</h2>
+      <div class="row">
+        <div>
+          <label for="filter-status">状态筛选</label>
+          <select id="filter-status">
+            <option value="">全部</option>
+            <option value="pending">pending</option>
+            <option value="running">running</option>
+            <option value="completed">completed</option>
+            <option value="failed">failed</option>
+            <option value="interrupted">interrupted</option>
+          </select>
+        </div>
+        <div>
+          <label for="filter-label">标签筛选（key=value）</label>
+          <input id="filter-label" placeholder="team=core" />
+        </div>
+      </div>
+      <div class="actions">
+        <button class="secondary" id="apply-filter">应用筛选</button>
+      </div>
+      <div class="task-list" id="task-list"></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">提示</h2>
+      <div class="pill">在任务列表中点击「订阅日志」或「进入终端」进入独立页面。</div>
+    </section>
+  </div>
+  <div class="toast-root" id="toast-root" aria-live="polite"></div>
+
+  <script>
+    const healthDot = document.getElementById("health-dot");
+    const healthText = document.getElementById("health-text");
+    const taskList = document.getElementById("task-list");
+    const createResult = document.getElementById("create-result");
+    const toastRoot = document.getElementById("toast-root");
+    const protocolRow = document.getElementById("protocol-row");
+    const protocolSelect = document.getElementById("protocol");
+    const clientSelect = document.getElementById("client");
+
+    function showToast(message, variant = "error") {
+      if (!message || !toastRoot) return;
+      const toast = document.createElement("div");
+      toast.className = `toast ${variant}`;
+      toast.textContent = message;
+      toastRoot.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add("hide");
+        toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+      }, 2600);
+    }
+
+    const parseKV = (raw) => {
+      if (!raw) return {};
+      return raw.split(",").reduce((acc, item) => {
+        const [key, value] = item.split("=").map((v) => (v || "").trim());
+        if (key && value) acc[key] = value;
+        return acc;
+      }, {});
+    };
+
+    const splitArgs = (raw) => {
+      if (!raw) return [];
+      return raw.split(" ").map((v) => v.trim()).filter(Boolean);
+    };
+
+    function authHeaders() {
+      const token = localStorage.getItem("aider-token") || "";
+      if (!token) return {};
+      return { Authorization: `Bearer ${token}` };
+    }
+
+    async function checkHealth() {
+      try {
+        const res = await fetch("/healthz", { headers: authHeaders() });
+        if (!res.ok) throw new Error("health error");
+        healthDot.classList.add("ok");
+        healthText.textContent = "服务运行中";
+      } catch (err) {
+        healthDot.classList.remove("ok");
+        healthText.textContent = "无法连接服务";
+      }
+    }
+
+    function updateProtocolVisibility() {
+      if (!protocolRow) return;
+      protocolRow.style.display = clientSelect.value === "codex" ? "grid" : "none";
+    }
+
+    function renderResult(message) {
+      createResult.innerHTML = "";
+      if (!message) return;
+      const pill = document.createElement("div");
+      pill.className = "pill";
+      pill.textContent = message;
+      createResult.appendChild(pill);
+    }
+
+    async function createTask() {
+      const client = clientSelect.value;
+      const args = splitArgs(document.getElementById("args").value);
+      const prompt = document.getElementById("prompt").value;
+      const mode = document.getElementById("mode").value;
+      const interactive = mode === "interactive";
+      const labels = parseKV(document.getElementById("labels").value);
+      const env = parseKV(document.getElementById("env").value);
+      const protocol = client === "codex" && protocolSelect ? protocolSelect.value : "";
+      renderResult("创建中...");
+      try {
+        const res = await fetch("/api/v1/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ client, args, labels, env, prompt, interactive, protocol }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "创建失败");
+        renderResult(`任务已创建：${data.id}`);
+        const logTaskInput = document.getElementById("log-task-id");
+        if (logTaskInput) {
+          logTaskInput.value = data.id;
+        }
+        await loadTasks();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err || "创建失败");
+        renderResult(message);
+        showToast(message);
+      }
+    }
+
+    async function loadTasks() {
+      taskList.innerHTML = "";
+      const status = document.getElementById("filter-status").value;
+      const labelRaw = document.getElementById("filter-label").value.trim();
+      const params = new URLSearchParams();
+      if (status) params.set("status", status);
+      if (labelRaw.includes("=")) {
+        const [key, value] = labelRaw.split("=").map((v) => v.trim());
+        if (key && value) params.set(`label.${key}`, value);
+      }
+      const url = "/api/v1/tasks" + (params.toString() ? `?${params.toString()}` : "");
+      try {
+        const res = await fetch(url, { headers: authHeaders() });
+        const data = await res.json();
+        const items = data.items || [];
+        if (!items.length) {
+          taskList.innerHTML = '<div class="pill">暂无任务</div>';
+          return;
+        }
+        items.forEach((task) => {
+          const canInterrupt = task.status === "running";
+          const protocolBadge = task.protocol ? `<span class="badge">${task.protocol}</span>` : "";
+          const terminalDisabled = task.protocol === "app-server" ? 'disabled title="App Server 不支持终端交互"' : "";
+          const card = document.createElement("div");
+          card.className = "task-card";
+          card.innerHTML = `
+            <strong>${task.client}</strong>
+            <div class="task-meta">
+              <span class="badge">${task.status}</span>
+              ${protocolBadge}
+              <span>${task.id}</span>
+              <span>${new Date(task.created_at).toLocaleString()}</span>
+            </div>
+            <div class="task-meta">${Object.entries(task.labels || {}).map(([k, v]) => `${k}=${v}`).join(" · ") || "无标签"}</div>
+            <div class="task-actions">
+              <button class="secondary" data-action="logs" data-id="${task.id}">订阅日志</button>
+              <button class="secondary" data-action="terminal" data-id="${task.id}" ${terminalDisabled}>进入终端</button>
+              <button class="secondary" data-action="chat" data-id="${task.id}">终端对话</button>
+              <button class="secondary" data-action="interrupt" data-id="${task.id}" ${canInterrupt ? "" : 'disabled title="仅运行中任务可中断"'}>中断任务</button>
+              <button class="secondary" data-action="delete" data-id="${task.id}">删除任务</button>
+            </div>
+          `;
+          taskList.appendChild(card);
+        });
+      } catch (err) {
+        taskList.innerHTML = '<div class="pill">加载失败</div>';
+        const message = err instanceof Error ? err.message : String(err || "加载失败");
+        showToast(message);
+      }
+    }
+
+    async function interruptById(taskId) {
+      if (!taskId) return;
+      try {
+      const res = await fetch(`/api/v1/tasks/${taskId}/interrupt`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "中断失败");
+        renderResult(`已中断任务：${data.id}`);
+        await loadTasks();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err || "中断失败");
+        renderResult(message);
+        showToast(message);
+      }
+    }
+
+    async function deleteTask(taskId) {
+      if (!taskId) return;
+      if (!confirm(`确认删除任务 ${taskId}？`)) return;
+      try {
+      const res = await fetch(`/api/v1/tasks/${taskId}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "删除失败");
+        renderResult(`已删除任务：${data.id}`);
+        await loadTasks();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err || "删除失败");
+        renderResult(message);
+        showToast(message);
+      }
+    }
+
+    document.getElementById("create-task").addEventListener("click", createTask);
+    document.getElementById("refresh-tasks").addEventListener("click", loadTasks);
+    document.getElementById("apply-filter").addEventListener("click", loadTasks);
+    clientSelect.addEventListener("change", updateProtocolVisibility);
+
+    taskList.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const action = target.dataset.action;
+      const taskId = target.dataset.id;
+      if (!action || !taskId) return;
+      if (action === "logs") {
+        const token = localStorage.getItem("aider-token") || "";
+        const url = new URL("/logs.html", window.location.origin);
+        url.searchParams.set("taskId", taskId);
+        if (token) {
+          url.searchParams.set("token", token);
+        }
+        window.open(url.toString(), "_blank", "noopener");
+      } else if (action === "terminal") {
+        const token = localStorage.getItem("aider-token") || "";
+        const url = new URL("/terminal.html", window.location.origin);
+        url.searchParams.set("taskId", taskId);
+        if (token) {
+          url.searchParams.set("token", token);
+        }
+        window.open(url.toString(), "_blank", "noopener");
+      } else if (action === "chat") {
+        const token = localStorage.getItem("aider-token") || "";
+        const url = new URL("/terminal-chat.html", window.location.origin);
+        url.searchParams.set("taskId", taskId);
+        if (token) {
+          url.searchParams.set("token", token);
+        }
+        window.open(url.toString(), "_blank", "noopener");
+      } else if (action === "interrupt") {
+        interruptById(taskId);
+      } else if (action === "delete") {
+        deleteTask(taskId);
+      }
+    });
+
+    checkHealth();
+    updateProtocolVisibility();
+    loadTasks();
+    setInterval(checkHealth, 5000);
+  </script>
+</body>
+</html>

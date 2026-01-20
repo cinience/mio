@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>aider-server 日志订阅</title>
+  <style>
+    :root {
+      --bg: #f7f1e8;
+      --panel: #ffffff;
+      --ink: #1b1b1b;
+      --muted: #5c5c5c;
+      --accent: #e86a33;
+      --shadow: 0 24px 60px rgba(27, 27, 27, 0.12);
+      --radius: 18px;
+      --radius-sm: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(232, 106, 51, 0.18), transparent 50%),
+        linear-gradient(130deg, #f9f2e7 0%, #f7f1e8 40%, #f3e9dc 100%);
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 40px 20px 60px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .shell {
+      width: min(960px, 100%);
+      display: grid;
+      gap: 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(26px, 3vw, 34px);
+    }
+
+    section {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid #e0d7ce;
+      background: #faf7f2;
+      font-size: 14px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    button.secondary {
+      background: #f1ece6;
+      color: var(--ink);
+      border: 1px solid #e3d8cd;
+    }
+
+    .log-panel {
+      background: #111318;
+      color: #e3e8f0;
+      border-radius: 16px;
+      padding: 14px;
+      height: 360px;
+      overflow: auto;
+      font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+      font-size: 12px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .toast-root {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: grid;
+      gap: 8px;
+      z-index: 9999;
+    }
+
+    .toast {
+      background: #1b1b1b;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(-6px);
+      animation: toast-in 0.2s ease forwards;
+    }
+
+    .toast.error {
+      background: #b42318;
+    }
+
+    .toast.hide {
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    @keyframes toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>任务日志订阅</h1>
+        <div id="task-title"></div>
+      </div>
+      <a href="/">返回列表</a>
+    </header>
+
+    <section>
+      <div class="row">
+        <div>
+          <label for="task-id">任务 ID</label>
+          <input id="task-id" placeholder="task id" />
+        </div>
+        <div>
+          <label for="token">Token（可选）</label>
+          <input id="token" placeholder="Bearer token" />
+        </div>
+        <div>
+          <label for="from">起始序号</label>
+          <input id="from" type="number" min="0" value="0" />
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="start">开始订阅</button>
+        <button class="secondary" id="stop">停止订阅</button>
+      </div>
+    </section>
+
+    <section>
+      <div class="log-panel" id="log-panel">等待订阅日志...</div>
+    </section>
+  </div>
+  <div class="toast-root" id="toast-root" aria-live="polite"></div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const taskIdInput = document.getElementById("task-id");
+    const tokenInput = document.getElementById("token");
+    const fromInput = document.getElementById("from");
+    const logPanel = document.getElementById("log-panel");
+    const title = document.getElementById("task-title");
+    const toastRoot = document.getElementById("toast-root");
+
+    let source = null;
+
+    function showToast(message, variant = "error") {
+      if (!message || !toastRoot) return;
+      const toast = document.createElement("div");
+      toast.className = `toast ${variant}`;
+      toast.textContent = message;
+      toastRoot.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add("hide");
+        toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+      }, 2600);
+    }
+
+    taskIdInput.value = params.get("taskId") || "";
+    tokenInput.value = params.get("token") || localStorage.getItem("aider-token") || "";
+    if (params.get("token")) {
+      localStorage.setItem("aider-token", tokenInput.value.trim());
+    }
+    if (taskIdInput.value) {
+      title.textContent = `任务: ${taskIdInput.value}`;
+    }
+
+    function stop() {
+      if (source) {
+        source.close();
+        source = null;
+      }
+      logPanel.textContent = "日志订阅已停止。";
+    }
+
+    function start() {
+      const taskId = taskIdInput.value.trim();
+      if (!taskId) {
+        showToast("请输入任务 ID");
+        return;
+      }
+      const token = tokenInput.value.trim();
+      const fromSeq = Number(fromInput.value || 0);
+      if (token) {
+        localStorage.setItem("aider-token", token);
+      }
+      stop();
+      logPanel.textContent = "";
+      const url = new URL(`/api/v1/tasks/${taskId}/logs/stream`, window.location.origin);
+      if (fromSeq > 0) {
+        url.searchParams.set("from", String(fromSeq));
+      }
+      if (token) {
+        url.searchParams.set("token", token);
+      }
+      source = new EventSource(url.toString());
+      source.addEventListener("log", (event) => {
+        const data = JSON.parse(event.data);
+        const line = document.createElement("div");
+        line.textContent = `[${new Date(data.ts).toLocaleTimeString()}] ${data.line}`;
+        logPanel.appendChild(line);
+        logPanel.scrollTop = logPanel.scrollHeight;
+      });
+      source.addEventListener("end", (event) => {
+        const line = document.createElement("div");
+        line.textContent = `日志结束: ${event.data}`;
+        logPanel.appendChild(line);
+      });
+      source.onerror = () => {
+        showToast("日志订阅连接异常");
+        stop();
+      };
+    }
+
+    document.getElementById("start").addEventListener("click", start);
+    document.getElementById("stop").addEventListener("click", stop);
+
+    if (taskIdInput.value) {
+      start();
+    }
+  </script>
+</body>
+</html>

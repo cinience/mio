@@ -1,0 +1,492 @@
+id,model_type,model_code,model_name,is_default,is_enabled,config_json,doc_link,remark,sort,creator,create_date,updater,update_date
+VAD_WebRTCVAD,VAD,WebRTCVAD,WebRTC语音活动检测,1,1,"{""type"": ""webrtc_vad"", ""vad_sample_rate"": 16000, ""vad_mode"": 2, ""noise_floor"": 0.01, ""min_active_frames"": 2, ""pool_min_size"": 5, ""pool_max_size"": 100, ""pool_max_idle"": 20}",https://webrtc.org/,"WebRTC VAD配置说明：
+1. 使用WebRTC VAD进行实时语音活动检测
+2. 适合语音助手、对讲等低延迟场景
+3. 关键调优参数（默认值已在配置中体现）：
+   - vad_sample_rate: 16000（支持 8000/16000/32000/48000，可与音频通道保持一致）
+   - vad_mode: 2（0-3，值越大越敏感；嘈杂环境可降到0-1，确保召回可升至3）
+   - noise_floor: 0.01（RMS能量阈值，常见范围0.005-0.03；背景噪声大时调高可减少误触）
+   - min_active_frames: 2（首次判定所需连续有效帧，突发噪声多时可提高到3-4帧）
+   - pool_min_size/pool_max_size/pool_max_idle: 控制VAD实例池大小与回收，按并发量和峰值实时性调节
+4. 建议配合 `docs/others/VAD.md` 监控RMS噪声，按设备噪声动态调整 noise_floor 与 min_active_frames，避免漏检/误判",0,,,,
+VAD_SileroVAD,VAD,SileroVAD,语音活动检测,0,1,"{""type"": ""silero"", ""model_dir"": ""models/snakers4_silero-vad"", ""threshold"": 0.5, ""min_silence_duration_ms"": 700}",https://github.com/snakers4/silero-vad,"SileroVAD配置说明：
+1. 使用SileroVAD模型进行语音活动检测
+2. 本地推理，无需网络连接
+3. 需要下载模型文件到models/snakers4_silero-vad目录
+4. 可配置参数：
+   - threshold: 0.5（语音检测阈值）
+   - min_silence_duration_ms: 700（最小静音持续时间，单位毫秒）
+5. 如果说话停顿比较长，可以适当增加min_silence_duration_ms的值",1,,,,
+VAD_SherpaVAD,VAD,SherpaVAD,Sherpa语音活动检测,0,1,"{""type"": ""sherpa_vad"", ""model_path"": ""config/models/vad/silero_vad.onnx"", ""sample_rate"": 16000, ""num_threads"": 1, ""provider"": ""cpu"", ""threshold"": 0.5, ""min_silence_duration"": 0.5, ""min_speech_duration"": 0.25, ""max_speech_duration"": 0.0, ""window_size"": 512, ""buffer_size_seconds"": 5.0}",https://github.com/k2-fsa/sherpa-onnx,"Sherpa VAD配置说明：
+1. 基于 sherpa-onnx 的 Silero VAD 模型，适合需要更强噪声鲁棒性的场景
+2. 关键调优参数：
+   - model_path: 模型文件路径，缺省时自动回落到内置 silero_vad.onnx
+   - threshold: 0.5（语音置信度阈值，嘈杂环境可升至0.6-0.65，避免漏检可降至0.4）
+   - min_silence_duration: 0.5（静音截断阈值，快速对话可降到0.3）
+   - min_speech_duration: 0.25（最小语音时长，想要快速触发可降到0.15）
+   - max_speech_duration: 0.0（0表示不限制；需要强制分段时可设为4-8秒）
+   - window_size: 512（FFT窗口大小，保持与模型训练一致，非必要不建议更改）
+   - buffer_size_seconds: 5.0（内部缓冲长度，长语音或高延迟链路可增至8-10）
+   - sample_rate/num_threads/provider: 控制输入采样率与推理资源，GPU 推理需将 provider 设为 cuda 并调整线程数
+3. 建议结合 `docs/others/VAD.md` 的监控指标，把上游 RMS、延迟、VAD 判定日志纳入观测后再做细调",2,,,,
+ASR_AliyunASR,ASR,AliyunASR,阿里云语音识别,0,1,"{""type"": ""aliyun"", ""token"": """", ""appkey"": """", ""output_dir"": ""tmp/"", ""access_key_id"": """", ""access_key_secret"": """"}",https://nls-portal.console.aliyun.com/,"阿里云ASR配置说明：
+1. 访问 https://nls-portal.console.aliyun.com/ 开通服务
+2. 访问 https://nls-portal.console.aliyun.com/applist 获取appkey
+3. 访问 https://nls-portal.console.aliyun.com/overview 获取token
+4. 获取access_key_id和access_key_secret
+5. 填入配置文件中",6,,,,
+ASR_AliyunStreamASR,ASR,AliyunStreamASR,阿里云语音识别(流式),0,1,"{""host"": ""nls-gateway-cn-shanghai.aliyuncs.com"", ""type"": ""aliyun_stream"", ""token"": """", ""appkey"": """", ""output_dir"": ""tmp/"", ""access_key_id"": """", ""access_key_secret"": """", ""max_sentence_silence"": 800}",https://nls-portal.console.aliyun.com/,"阿里云流式ASR配置说明：
+1. 阿里云ASR和阿里云(流式)ASR的区别是：阿里云ASR是一次性识别，阿里云(流式)ASR是实时流式识别
+2. 流式ASR具有更低的延迟和更好的实时性，适合语音交互场景
+3. 需要在阿里云智能语音交互控制台创建应用并获取认证信息
+4. 支持中文实时语音识别，支持标点符号预测和逆文本规范化
+5. 需要网络连接，输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://nls-portal.console.aliyun.com/ 开通智能语音交互服务
+2. 访问 https://nls-portal.console.aliyun.com/applist 创建项目并获取appkey
+3. 访问 https://nls-portal.console.aliyun.com/overview 获取临时token（或配置access_key_id和access_key_secret自动获取）
+4. 如需动态token管理，建议配置access_key_id和access_key_secret
+5. max_sentence_silence参数控制断句检测时间（毫秒），默认800ms
+如需了解更多参数配置，请参考：https://help.aliyun.com/zh/isi/developer-reference/real-time-speech-recognition
+",8,,,,
+ASR_BaiduASR,ASR,BaiduASR,百度语音识别,0,0,"{""type"": ""baidu"", ""app_id"": """", ""api_key"": """", ""dev_pid"": 1537, ""output_dir"": ""tmp/"", ""secret_key"": """"}",https://console.bce.baidu.com/ai-engine/old/#/ai/speech/app/list,"百度ASR配置说明：
+1. 访问 https://console.bce.baidu.com/ai-engine/old/#/ai/speech/app/list
+2. 创建新应用
+3. 获取AppID、API Key和Secret Key
+4. 填入配置文件中
+查看资源额度：https://console.bce.baidu.com/ai-engine/old/#/ai/speech/overview/resource/list
+语言参数说明：https://ai.baidu.com/ai-doc/SPEECH/0lbxfnc9b
+",7,,,,
+ASR_DoubaoASR,ASR,DoubaoASR,豆包语音识别,0,1,"{""type"": ""doubao"", ""appid"": """", ""cluster"": ""volcengine_input_common"", ""output_dir"": ""tmp/"", ""access_token"": """"}",https://console.volcengine.com/speech/app,"豆包ASR配置说明：
+1. 豆包ASR和豆包(流式)ASR的区别是：豆包ASR是按次收费，豆包(流式)ASR是按时收费
+2. 一般来说按次收费的更便宜，但是豆包(流式)ASR使用了大模型技术，效果更好
+3. 需要在火山引擎控制台创建应用并获取appid和access_token
+4. 支持中文语音识别
+5. 需要网络连接
+6. 输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://console.volcengine.com/speech/app
+2. 创建新应用
+3. 获取appid和access_token
+4. 填入配置文件中
+如需设置热词，请参考：https://www.volcengine.com/docs/6561/155738
+",3,,,,
+ASR_DoubaoStreamASR,ASR,DoubaoStreamASR,豆包语音识别(流式),0,1,"{""type"": ""doubao_stream"", ""appid"": """", ""cluster"": ""volcengine_input_common"", ""output_dir"": ""tmp/"", ""access_token"": """"}",https://console.volcengine.com/speech/app,"豆包ASR配置说明：
+1. 豆包ASR和豆包(流式)ASR的区别是：豆包ASR是按次收费，豆包(流式)ASR是按时收费
+2. 一般来说按次收费的更便宜，但是豆包(流式)ASR使用了大模型技术，效果更好
+3. 需要在火山引擎控制台创建应用并获取appid和access_token
+4. 支持中文语音识别
+5. 需要网络连接
+6. 输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://console.volcengine.com/speech/app
+2. 创建新应用
+3. 获取appid和access_token
+4. 填入配置文件中
+如需设置热词，请参考：https://www.volcengine.com/docs/6561/155738
+",3,,,,
+ASR_FunASR,ASR,FunASR,FunASR语音识别,0,1,"{""type"": ""fun_local"", ""model_dir"": ""models/SenseVoiceSmall"", ""output_dir"": ""tmp/""}",https://github.com/modelscope/FunASR,"FunASR本地模型配置说明：
+1. 需要下载模型文件到xiaozhi-server/models/SenseVoiceSmall目录
+2. 支持中日韩粤语音识别
+3. 本地推理，无需网络连接
+4. 待识别文件保存在tmp/目录",1,,,,
+ASR_FunASRServer,ASR,FunASRServer,FunASR服务语音识别,0,1,"{""host"": ""127.0.0.1"", ""port"": 10096, ""type"": ""fun_server"", ""is_ssl"": true, ""api_key"": ""none"", ""output_dir"": ""tmp/""}",https://github.com/modelscope/FunASR/blob/main/runtime/docs/SDK_advanced_guide_online_zh.md,"独立部署FunASR，使用FunASR的API服务，只需要五句话
+第一句：mkdir -p ./funasr-runtime-resources/models
+第二句：sudo docker run -p 10096:10095 -it --privileged=true -v $PWD/funasr-runtime-resources/models:/workspace/models registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.12
+上一句话执行后会进入到容器，继续第三句：cd FunASR/runtime
+不要退出容器，继续在容器中执行第四句：nohup bash run_server_2pass.sh --download-model-dir /workspace/models --vad-dir damo/speech_fsmn_vad_zh-cn-16k-common-onnx --model-dir damo/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-onnx  --online-model-dir damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online-onnx  --punc-dir damo/punc_ct-transformer_zh-cn-common-vad_realtime-vocab272727-onnx --lm-dir damo/speech_ngram_lm_zh-cn-ai-wesp-fst --itn-dir thuduj12/fst_itn_zh --hotword /workspace/models/hotwords.txt > log.txt 2>&1 &
+上一句话执行后会进入到容器，继续第五句：tail -f log.txt
+第五句话执行完后，会看到模型下载日志，下载完后就可以连接使用了
+以上是使用CPU推理，如果有GPU，详细参考：https://github.com/modelscope/FunASR/blob/main/runtime/docs/SDK_advanced_guide_online_zh.md",5,,,,
+ASR_GroqASR,ASR,GroqASR,Groq语音识别,0,0,"{""type"": ""openai"", ""api_key"": """", ""base_url"": ""https://api.groq.com/openai/v1/audio/transcriptions"", ""model_name"": ""whisper-large-v3-turbo"", ""output_dir"": ""tmp/""}",https://console.groq.com/docs/speech-to-text,"Groq ASR配置说明：
+1.登录groq Console。https://console.groq.com/home
+2.创建api-key  https://console.groq.com/keys
+3.模型可以选择whisper-large-v3-turbo或whisper-large-v3（distil-whisper-large-v3-en仅支持英语转录）
+",0,,,,
+ASR_OpenaiASR,ASR,OpenaiASR,OpenAI语音识别,0,0,"{""type"": ""openai"", ""api_key"": """", ""base_url"": ""https://api.openai.com/v1/audio/transcriptions"", ""model_name"": ""gpt-4o-mini-transcribe"", ""output_dir"": ""tmp/""}",https://platform.openai.com/docs/api-reference/audio/createTranscription,"OpenAI ASR配置说明：
+1. 需要在OpenAI开放平台创建组织并获取api_key
+2. 支持中、英、日、韩等多种语音识别，具体参考文档https://platform.openai.com/docs/guides/speech-to-text
+3. 需要网络连接
+4. 输出文件保存在tmp/目录
+申请步骤：
+**OpenAI ASR申请步骤：**
+1.登录OpenAI Platform。https://auth.openai.com/log-in
+2.创建api-key  https://platform.openai.com/settings/organization/api-keys
+3.模型可以选择gpt-4o-transcribe或GPT-4o mini Transcribe
+",9,,,,
+ASR_OpenAIRealtime,ASR,OpenAIRealtimeASR,OpenAI Realtime语音识别,1,1,"{""type"": ""openai_realtime"", ""url"": ""ws://example.localhost:8009/v1/realtime?intent=transcription"", ""auth_token"": """", ""sample_rate"": 16000, ""frame_duration"": 20}",https://platform.openai.com/docs/api-reference/realtime,"OpenAI Realtime ASR配置说明：
+1. 推荐搭配`speech-server`部署，或指向任意兼容OpenAI Realtime协议的语音识别服务
+2. url需携带`intent=transcription`参数，auth_token填写服务要求的Bearer令牌（如无鉴权可留空）
+3. sample_rate与frame_duration应与设备推送音频一致，常用取值为16kHz与20ms
+",0,,,,
+ASR_GoogleGenAI,ASR,GoogleGenAIASR,Gemini Live语音识别,0,1,"{""type"": ""google_genai"", ""backend"": ""gemini"", ""api_key"": """", ""model"": ""gemini-live-2.5-flash-preview"", ""api_version"": ""v1alpha"", ""base_url"": """", ""sample_rate"": 16000}",https://ai.google.dev/gemini-api/docs/live,"Google GenAI Live ASR配置说明：
+1. backend 可选 gemini 或 vertex
+2. gemini 需要 api_key，vertex 需要 project 与 location（请在配置中补充）
+3. model 使用 Gemini Live 系列模型
+4. sample_rate 与设备输入采样率保持一致
+",0,,,,
+ASR_SherpaASR,ASR,SherpaASR,Sherpa语音识别,0,0,"{""type"": ""sherpa_onnx_local"", ""model_dir"": ""models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"", ""output_dir"": ""tmp/""}",https://github.com/k2-fsa/sherpa-onnx,"SherpaASR配置说明：
+1. 运行时自动下载模型文件到models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17目录
+2. 支持中文、英文、日语、韩语、粤语等多种语言
+3. 本地推理，无需网络连接
+4. 输出文件保存在tmp/目录",2,,,,
+ASR_TencentASR,ASR,TencentASR,腾讯语音识别,0,0,"{""type"": ""tencent"", ""appid"": """", ""secret_id"": """", ""output_dir"": ""tmp/"", ""secret_key"": ""你的secret_key""}",https://console.cloud.tencent.com/cam/capi,"腾讯ASR配置说明：
+1. 需要在腾讯云控制台创建应用并获取appid、secret_id和secret_key
+2. 支持中文语音识别
+3. 需要网络连接
+4. 输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://console.cloud.tencent.com/cam/capi 获取密钥
+2. 访问 https://console.cloud.tencent.com/asr/resourcebundle 领取免费资源
+3. 获取appid、secret_id和secret_key
+4. 填入配置文件中",4,,,,
+Intent_function_call,Intent,function_call,函数调用意图识别,0,1,"{""type"": ""function_call""}",,"函数调用意图识别配置说明：
+1. 使用LLM的function_call功能进行意图识别
+2. 需要所选择的LLM支持function_call
+3. 按需调用工具，处理速度快",3,,,,
+Intent_intent_llm,Intent,intent_llm,LLM意图识别,0,1,"{""llm"": ""LLM_ChatGLMLLM"", ""type"": ""intent_llm""}",,"LLM意图识别配置说明：
+1. 使用独立的LLM进行意图识别
+2. 默认使用selected_module.LLM的模型
+3. 可以配置使用独立的LLM（如免费的ChatGLMLLM）
+4. 通用性强，但会增加处理时间
+配置说明：
+1. 在llm字段中指定使用的LLM模型
+2. 如果不指定，则使用selected_module.LLM的模型",2,,,,
+Intent_nointent,Intent,nointent,无意图识别,1,0,"{""type"": ""nointent""}",,"无意图识别配置说明：
+1. 不进行意图识别
+2. 所有对话直接传递给LLM处理
+3. 无需额外配置
+4. 适合简单对话场景",1,,,,
+LLM_AliLLM,LLM,AliLLM,通义千问,1,1,"{""type"": ""openai"", ""top_k"": 20, ""top_p"": 0.9, ""api_key"": ""${OPENAI_API_KEY}"",""base_url"": ""https://dashscope.aliyuncs.com/compatible-mode/v1"", ""max_tokens"": 128, ""model_name"": ""qwen-turbo"", ""temperature"": 0.4, ""frequency_penalty"": 0, ""streamable"": true}",https://bailian.console.aliyun.com/?apiKey=1#/api-key,"通义千问配置说明：
+1. 访问 https://bailian.console.aliyun.com/?apiKey=1#/api-key
+2. 获取API密钥
+3. 填入配置文件中，当前配置使用qwen-turbo模型速度更快，qwen3-max模型效果更好
+4. 支持自定义参数：temperature=0.4, max_tokens=128, top_p=0.9, top_k=20, streamable=true",0,,,,
+LLM_ChatGLMLLM,LLM,ChatGLMLLM,智谱AI,0,1,"{""type"": ""openai"", ""api_key"": ""${OPENAI_API_KEY}"", ""base_url"": ""https://open.bigmodel.cn/api/paas/v4/"", ""model_name"": ""glm-4-flash""}",https://bigmodel.cn/usercenter/proj-mgmt/apikeys,"ChatGLM配置说明：
+1. 访问 https://bigmodel.cn/usercenter/proj-mgmt/apikeys
+2. 注册并获取API密钥
+3. 填入配置文件中",1,,,,
+LLM_CozeLLM,LLM,CozeLLM,Coze,0,1,"{""type"": ""coze"", ""bot_id"": ""你的bot_id"", ""user_id"": ""你的user_id"", ""personal_access_token"": ""你的personal_access_token""}",https://www.coze.cn/open/oauth/pats,"Coze配置说明：
+1. 使用Coze平台服务
+2. 需要bot_id、user_id和个人令牌
+3. 需要网络连接
+申请步骤：
+1. 访问 https://www.coze.cn/open/oauth/pats
+2. 获取个人令牌
+3. 手动计算bot_id和user_id
+4. 填入配置文件中",9,,,,
+LLM_DeepSeekLLM,LLM,DeepSeekLLM,DeepSeek,0,1,"{""type"": ""openai"", ""api_key"": ""${OPENAI_API_KEY}"", ""base_url"": ""https://api.deepseek.com"", ""model_name"": ""deepseek-chat""}",https://platform.deepseek.com/,"DeepSeek配置说明：
+1. 访问 https://platform.deepseek.com/
+2. 注册并获取API密钥
+3. 填入配置文件中",6,,,,
+LLM_DifyLLM,LLM,DifyLLM,Dify,0,1,"{""mode"": ""chat-messages"", ""type"": ""dify"", ""api_key"": ""你的api_key"", ""base_url"": ""https://api.dify.ai/v1""}",https://cloud.dify.ai/,"Dify配置说明：
+1. 访问 https://cloud.dify.ai/
+2. 注册并获取API密钥
+3. 填入配置文件中
+4. 支持多种对话模式：workflows/run, chat-messages, completion-messages
+5. 平台设置的角色定义会失效，需要在Dify控制台设置
+注意：建议使用本地部署的Dify接口，国内部分区域访问公有云接口可能受限",7,,,,
+LLM_DoubaoLLM,LLM,DoubaoLLM,豆包大模型,0,1,"{""type"": ""openai"", ""api_key"": ""${OPENAI_API_KEY}"", ""base_url"": ""https://ark.cn-beijing.volces.com/api/v3"", ""model_name"": ""doubao-pro-32k-functioncall-241028""}",https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement,"豆包大模型配置说明：
+1. 访问 https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement
+2. 开通Doubao-1.5-pro服务
+3. 访问 https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey 获取API密钥
+4. 填入配置文件中
+5. 当前建议使用doubao-1-5-pro-32k-250115
+注意：有免费额度500000token",5,,,,
+LLM_FastgptLLM,LLM,FastgptLLM,FastGPT,0,1,"{""type"": ""fastgpt"", ""api_key"": ""fastgpt-xxx"", ""base_url"": ""https://host/api/v1"", ""variables"": {""k"": ""v"", ""k2"": ""v2""}}",https://cloud.tryfastgpt.ai/account/apikey,"FastGPT配置说明：
+1. 使用FastGPT平台服务
+2. 需要网络连接
+3. 配置文件中的prompt无效，需要在FastGPT控制台设置
+4. 支持自定义变量
+申请步骤：
+1. 访问 https://cloud.tryfastgpt.ai/account/apikey
+2. 获取API密钥
+3. 填入配置文件中",11,,,,
+LLM_OpenAI,LLM,OpenAIGPT,OpenAI GPT,0,1,"{""type"": ""openai"", ""api_key"": ""${OPENAI_API_KEY}"", ""base_url"": ""https://api.openai.com/v1"", ""model_name"": ""gpt-4o-mini"", ""temperature"": 0.6, ""max_tokens"": 4096, ""top_p"": 1, ""top_k"": 0, ""frequency_penalty"": 0}",https://platform.openai.com/docs/models/gpt-4o-mini,"OpenAI GPT-4o-mini配置说明：
+1. 默认使用 https://api.openai.com/v1 接口，可改成企业代理或中转。
+2. 模型字段填 gpt-4o-mini，兼顾速度与推理质量，支持文本、多模态上下文。
+3. 在 https://platform.openai.com/account/api-keys 创建 API Key，配置为 OPENAI_API_KEY 环境变量或在控制台直接填写。
+4. temperature、max_tokens、top_p、frequency_penalty、top_k 支持按业务自由调优，默认温度 0.6 适合通用助手场景。",4,,,,
+LLM_OpenRouter,LLM,OpenRouter,OpenRouter,0,1,"{""type"": ""openai"", ""api_key"": ""${OPENROUTER_API_KEY}"", ""base_url"": ""https://openrouter.ai/api/v1"", ""model_name"": ""openrouter/openai/gpt-4o-mini"", ""temperature"": 0.6, ""max_tokens"": 4096, ""top_p"": 1, ""frequency_penalty"": 0, ""extra_headers"": {""HTTP-Referer"": ""https://your-service.example"", ""X-Title"": ""Xiaozhi Server""}}",https://openrouter.ai/docs,"OpenRouter GPT-4o-mini配置说明：
+1. 通过 https://openrouter.ai/keys 生成 API Key，并填入 OPENROUTER_API_KEY 环境变量或控制台字段。
+2. base_url 默认为 https://openrouter.ai/api/v1，模型名写 openrouter/openai/gpt-4o-mini，可按需替换为其他兼容别名。
+3. OpenRouter 要求附带 HTTP-Referer 与 X-Title 头标识流量来源，示例值可替换为你的域名与应用名称。
+4. 其余温度、max_tokens、top_p、frequency_penalty 参数与 OpenAI 兼容，可按业务调优。",4,,,,
+LLM_GeminiLLM,LLM,GeminiLLM,谷歌Gemini,0,1,"{""type"": ""gemini"", ""api_key"": ""你的api_key"", ""http_proxy"": """", ""model_name"": ""gemini-2.0-flash"", ""https_proxy"": """"}",https://aistudio.google.com/apikey,"Gemini配置说明：
+1. 使用谷歌Gemini API服务
+2. 当前配置使用gemini-2.0-flash模型
+3. 需要网络连接
+4. 支持配置代理
+申请步骤：
+1. 访问 https://aistudio.google.com/apikey
+2. 创建API密钥
+3. 填入配置文件中
+注意：若在中国境内使用，请遵守《生成式人工智能服务管理暂行办法》",8,,,,
+LLM_LMStudioLLM,LLM,LMStudioLLM,LM Studio,0,1,"{""type"": ""openai"", ""api_key"": ""lm-studio"", ""base_url"": ""http://localhost:1234/v1"", ""model_name"": ""deepseek-r1-distill-llama-8b@q4_k_m""}",https://lmstudio.ai/,"LM Studio配置说明：
+1. 使用本地部署的LM Studio服务
+2. 当前配置使用deepseek-r1-distill-llama-8b@q4_k_m模型
+3. 本地推理，无需网络连接
+4. 需要预先下载模型
+部署步骤：
+1. 安装LM Studio
+2. 从社区下载模型
+3. 确保服务运行在http://localhost:1234/v1",10,,,,
+LLM_OllamaLLM,LLM,OllamaLLM,Ollama本地模型,0,1,"{""type"": ""ollama"", ""base_url"": ""http://localhost:11434"", ""model_name"": ""qwen2.5""}",https://ollama.com/,"Ollama配置说明：
+1. 安装Ollama服务
+2. 运行命令：ollama pull qwen2.5
+3. 确保服务运行在http://localhost:11434",2,,,,
+LLM_VolcesAiGatewayLLM,LLM,VolcesAiGatewayTTS,火山引擎边缘大模型网关,0,1,"{""type"": ""openai"", ""api_key"": ""你的网关访问密钥"", ""base_url"": ""https://ai-gateway.vei.volces.com/v1"", ""model_name"": ""doubao-pro-32k-functioncall""}",https://console.volcengine.com/vei/aigateway/,"火山引擎边缘大模型网关LLM配置说明：
+1. 使用火山引擎边缘大模型网关服务
+2. 需要网关访问密钥
+3. 需要网络连接
+4. 支持function_call功能
+申请步骤：
+1. 访问 https://console.volcengine.com/vei/aigateway/
+2. 创建网关访问密钥，搜索并勾选 Doubao-pro-32k-functioncall
+3. 如果需要使用语音合成，一并勾选 Doubao-语音合成
+4. 访问 https://console.volcengine.com/vei/aigateway/tokens-list 获取密钥
+5. 填入配置文件中",14,,,,
+LLM_XinferenceLLM,LLM,XinferenceLLM,Xinference大模型,0,1,"{""type"": ""xinference"", ""base_url"": ""http://localhost:9997"", ""model_name"": ""qwen2.5:72b-AWQ""}",https://github.com/xorbitsai/inference,"Xinference配置说明：
+1. 使用本地部署的Xinference服务
+2. 当前配置使用qwen2.5:72b-AWQ模型
+3. 本地推理，无需网络连接
+4. 需要预先启动对应模型
+部署步骤：
+1. 安装Xinference
+2. 启动服务并加载模型
+3. 确保服务运行在http://localhost:9997",12,,,,
+LLM_XinferenceSmallLLM,LLM,XinferenceSmallLLM,Xinference小模型,0,1,"{""type"": ""xinference"", ""base_url"": ""http://localhost:9997"", ""model_name"": ""qwen2.5:3b-AWQ""}",https://github.com/xorbitsai/inference,"Xinference小模型配置说明：
+1. 使用本地部署的Xinference服务
+2. 当前配置使用qwen2.5:3b-AWQ模型
+3. 本地推理，无需网络连接
+4. 用于意图识别
+部署步骤：
+1. 安装Xinference
+2. 启动服务并加载模型
+3. 确保服务运行在http://localhost:9997",13,,,,
+Memory_mem_local_short,Memory,mem_local_short,本地短期记忆,0,1,"{""llm"": ""LLM_ChatGLMLLM"", ""type"": ""mem_local_short""}",,"本地短期记忆配置说明：
+1. 使用本地存储保存对话历史
+2. 通过selected_module的llm总结对话内容
+3. 数据保存在本地，不会上传到服务器
+4. 适合注重隐私的场景
+5. 无需额外配置",2,,,,
+Memory_mem0ai,Memory,mem0ai,Mem0AI记忆,0,1,"{""type"": ""mem0ai"", ""api_key"": ""你的api_key""}",https://app.mem0.ai/dashboard/api-keys,"Mem0AI记忆配置说明：
+1. 使用Mem0AI服务保存对话历史
+2. 需要API密钥
+3. 需要网络连接
+4. 每月有1000次免费调用
+申请步骤：
+1. 访问 https://app.mem0.ai/dashboard/api-keys
+2. 获取API密钥
+3. 填入配置文件中",3,,,,
+Memory_nomem,Memory,nomem,无记忆,1,1,"{""type"": ""nomem""}",,"无记忆配置说明：
+1. 不保存对话历史
+2. 每次对话都是独立的
+3. 无需额外配置
+4. 适合对隐私要求高的场景",1,,,,
+TTS_ACGNTTS,TTS,ACGNTTS,ACGN语音合成,0,1,"{""url"": ""https://u95167-bd74-2aef8085.westx.seetacloud.com:8443/flashsummary/tts?token="", ""type"": ""ttson"", ""token"": """", ""format"": ""mp3"", ""emotion"": 1, ""to_lang"": ""ZH"", ""voice_id"": 1695, ""output_dir"": ""tmp/"", ""pitch_factor"": 0, ""speed_factor"": 1, ""volume_change_dB"": 0}",https://acgn.ttson.cn/,"ACGN TTS配置说明：
+1. 需要在ttson平台购买token
+2. 支持多种角色音色，当前配置使用角色ID：1695
+3. 需要网络连接
+4. 输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://acgn.ttson.cn/ 查看角色列表
+2. 访问 www.ttson.cn 购买token
+3. 填入配置文件中
+开发相关疑问请提交至网站上的qq",12,,,,
+TTS_AliyunStreamTTS,TTS,AliyunStreamTTS,阿里云语音合成(流式),0,1,"{""host"": ""nls-gateway-cn-beijing.aliyuncs.com"", ""type"": ""aliyun_stream"", ""token"": """", ""voice"": ""longxiaochun"", ""appkey"": """", ""format"": ""pcm"", ""volume"": 50, ""output_dir"": ""tmp/"", ""pitch_rate"": 0, ""sample_rate"": 16000, ""speech_rate"": 0, ""access_key_id"": """", ""access_key_secret"": """"}",https://nls-portal.console.aliyun.com/,"阿里云流式TTS配置说明：
+1. 阿里云TTS和阿里云(流式)TTS的区别是：阿里云TTS是一次性合成，阿里云(流式)TTS是实时流式合成
+2. 流式TTS具有更低的延迟和更好的实时性，适合语音交互场景
+3. 需要在阿里云智能语音交互控制台创建应用并获取认证信息
+4. 支持CosyVoice大模型音色，音质更加自然
+5. 支持实时调节音量、语速、音调等参数
+申请步骤：
+1. 访问 https://nls-portal.console.aliyun.com/ 开通智能语音交互服务
+2. 访问 https://nls-portal.console.aliyun.com/applist 创建项目并获取appkey
+3. 访问 https://nls-portal.console.aliyun.com/overview 获取临时token（或配置access_key_id和access_key_secret自动获取）
+4. 如需动态token管理，建议配置access_key_id和access_key_secret
+5. 可选择北京、上海等不同地域的服务器以优化延迟
+6. voice参数支持CosyVoice大模型音色，如longxiaochun、longyueyue等
+如需了解更多参数配置，请参考：https://help.aliyun.com/zh/isi/developer-reference/real-time-speech-synthesis
+",18,,,,
+TTS_AliyunTTS,TTS,AliyunTTS,阿里云语音合成,0,1,"{""type"": ""aliyun"", ""token"": """", ""voice"": ""xiaoyun"", ""appkey"": """", ""output_dir"": ""tmp/"", ""access_key_id"": """", ""access_key_secret"": """"}",https://nls-portal.console.aliyun.com/,"阿里云TTS配置说明：
+1. 需要在阿里云平台开通智能语音交互服务
+2. 支持多种音色，当前配置使用xiaoyun
+3. 需要网络连接
+4. 输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://nls-portal.console.aliyun.com/ 开通服务
+2. 访问 https://nls-portal.console.aliyun.com/applist 获取appkey
+3. 访问 https://nls-portal.console.aliyun.com/overview 获取token
+4. 填入配置文件中
+注意：token是临时的24小时有效，长期使用需要配置access_key_id和access_key_secret",9,,,,
+TTS_CosyVoiceSiliconflow,TTS,CosyVoiceSiliconflow,硅基流动语音合成,0,1,"{""type"": ""siliconflow"", ""model"": ""FunAudioLLM/CosyVoice2-0.5B"", ""voice"": ""FunAudioLLM/CosyVoice2-0.5B:alex"", ""output_dir"": ""tmp/"", ""access_token"": """", ""response_format"": ""wav""}",https://cloud.siliconflow.cn/account/ak,"硅基流动TTS配置说明：
+1. 访问 https://cloud.siliconflow.cn/account/ak
+2. 注册并获取API密钥
+3. 填入配置文件中",3,,,,
+TTS_CozeCnTTS,TTS,CozeCnTTS,Coze中文语音合成,0,1,"{""type"": ""cozecn"", ""voice"": ""7426720361733046281"", ""output_dir"": ""tmp/"", ""access_token"": """", ""response_format"": ""wav""}",https://www.coze.cn/open/oauth/pats,"Coze中文TTS配置说明：
+1. 访问 https://www.coze.cn/open/oauth/pats
+2. 获取个人令牌
+3. 填入配置文件中",4,,,,
+TTS_CustomTTS,TTS,CustomTTS,自定义语音合成,0,1,"{""url"": ""http://127.0.0.1:9880/tts"", ""type"": ""custom"", ""format"": ""wav"", ""params"": {}, ""headers"": {}, ""output_dir"": ""tmp/""}",,"自定义TTS配置说明：
+1. 自定义的TTS接口服务，请求参数可自定义，可接入众多TTS服务
+2. 以本地部署的KokoroTTS为例
+3. 如果只有cpu运行：docker run -p 8880:8880 ghcr.io/remsky/kokoro-fastapi-cpu:latest
+4. 如果只有gpu运行：docker run --gpus all -p 8880:8880 ghcr.io/remsky/kokoro-fastapi-gpu:latest
+配置说明：
+1. 在params中配置请求参数,使用JSON格式
+   例如KokoroTTS：{ ""input"": ""{prompt_text}"", ""speed"": 1, ""voice"": ""zm_yunxi"", ""stream"": true, ""download_format"": ""mp3"", ""response_format"": ""mp3"", ""return_download_link"": true }
+2. 在headers中配置请求头
+3. 设置返回音频格式",14,,,,
+TTS_DoubaoTTS,TTS,DoubaoTTS,豆包语音合成,0,1,"{""type"": ""doubao"", ""appid"": """", ""voice"": ""BV001_streaming"", ""api_url"": ""https://openspeech.bytedance.com/api/v1/tts"", ""cluster"": ""volcano_tts"", ""output_dir"": ""tmp/"", ""access_token"": """", ""volume_ratio"":1,""authorization"": ""Bearer;""}",https://console.volcengine.com/speech/service/8,"豆包TTS配置说明：
+1. 访问 https://console.volcengine.com/speech/service/8
+2. 需要在火山引擎控制台创建应用并获取appid和access_token
+3. 山引擎语音一定要购买花钱，起步价30元，就有100并发了。如果用免费的只有2个并发，会经常报tts错误
+4. 购买服务后，购买免费的音色后，可能要等半小时左右，才能使用。
+5. 填入配置文件中",2,,,,
+TTS_EdgeTTS,TTS,EdgeTTS,Edge语音合成,0,1,"{""type"": ""edge"", ""voice"": ""zh-CN-XiaoxiaoNeural"", ""output_dir"": ""tmp/""}",https://github.com/rany2/edge-tts,"EdgeTTS配置说明：
+1. 使用微软Edge TTS服务
+2. 支持多种语言和音色
+3. 免费使用，无需注册
+4. 需要网络连接
+5. 输出文件保存在tmp/目录",1,,,,
+TTS_FishSpeech,TTS,FishSpeech,FishSpeech语音合成,0,1,"{""rate"": 44100, ""seed"": null, ""type"": ""fishspeech"", ""top_p"": 0.7, ""api_key"": """", ""api_url"": ""http://127.0.0.1:8080/v1/tts"", ""channels"": 1, ""normalize"": true, ""streaming"": false, ""output_dir"": ""tmp/"", ""temperature"": 0.7, ""chunk_length"": 200, ""reference_id"": null, ""max_new_tokens"": 1024, ""reference_text"": [""你弄来这些吟词宴曲来看，还是这些混话来欺负我。""], ""reference_audio"": [""/tmp/test.wav""], ""response_format"": ""wav"", ""use_memory_cache"": ""on"", ""repetition_penalty"": 1.2}",https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/fish-speech-integration.md,"FishSpeech配置说明：
+1. 需要本地部署FishSpeech服务
+2. 支持自定义音色
+3. 本地推理，无需网络连接
+4. 输出文件保存在tmp/目录
+5. 可参照教程https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/fish-speech-integration.md",5,,,,
+TTS_GizwitsTTS,TTS,GizwitsTTS,机智云语音合成,0,1,"{""type"": ""doubao"", ""voice"": ""zh_female_wanwanxiaohe_moon_bigtts"", ""api_url"": ""https://bytedance.gizwitsapi.com/api/v1/tts"", ""output_dir"": ""tmp/"", ""access_token"": """", ""authorization"": ""Bearer ""}",https://agentrouter.gizwitsapi.com/panel/token,"机智云TTS配置说明：
+1. 需要在机智云平台获取API密钥
+2. 支持多种音色，当前配置使用湾湾小何音色
+3. 需要网络连接
+4. 输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://agentrouter.gizwitsapi.com/panel/token 获取API密钥
+2. 填入配置文件中
+注意：前一万名注册的用户，将送5元体验金额",11,,,,
+TTS_GPT_SOVITS_V2,TTS,GPT_SOVITS_V2,GPT-SoVITS V2,0,1,"{""url"": ""http://127.0.0.1:9880/tts"", ""seed"": -1, ""type"": ""gpt_sovits_v2"", ""top_k"": 5, ""top_p"": 1, ""text_lang"": ""auto"", ""batch_size"": 1, ""output_dir"": ""tmp/"", ""prompt_lang"": ""zh"", ""prompt_text"": """", ""temperature"": 1, ""speed_factor"": 1.0, ""split_bucket"": true, ""parallel_infer"": true, ""ref_audio_path"": ""caixukun.wav"", ""streaming_mode"": false, ""batch_threshold"": 0.75, ""return_fragment"": false, ""text_split_method"": ""cut0"", ""repetition_penalty"": 1.35, ""aux_ref_audio_paths"": []}",https://github.com/RVC-Boss/GPT-SoVITS,"GPT-SoVITS V2配置说明：
+1. 需要本地部署GPT-SoVITS服务
+2. 支持自定义音色克隆
+3. 本地推理，无需网络连接
+4. 输出文件保存在tmp/目录
+部署步骤：
+1. 运行服务示例命令：python api_v2.py -a 127.0.0.1 -p 9880 -c GPT_SoVITS/configs/demo.yaml",6,,,,
+TTS_GPT_SOVITS_V3,TTS,GPT_SOVITS_V3,GPT-SoVITS V3,0,1,"{""url"": ""http://127.0.0.1:9880"", ""type"": ""gpt_sovits_v3"", ""if_sr"": false, ""speed"": 1.0, ""top_k"": 15, ""top_p"": 1.0, ""cut_punc"": """", ""inp_refs"": [], ""output_dir"": ""tmp/"", ""prompt_text"": """", ""temperature"": 1.0, ""sample_steps"": 32, ""text_language"": ""auto"", ""refer_wav_path"": ""caixukun.wav"", ""prompt_language"": ""zh""}",https://github.com/RVC-Boss/GPT-SoVITS,"GPT-SoVITS V3配置说明：
+1. 需要本地部署GPT-SoVITS V3服务
+2. 支持自定义音色克隆
+3. 本地推理，无需网络连接
+4. 输出文件保存在tmp/目录",7,,,,
+TTS_HuoshanDoubleStreamTTS,TTS,HuoshanDoubleStreamTTS,火山双流式语音合成,0,1,"{""type"": ""huoshan_double_stream"", ""appid"": ""你的火山引擎语音合成服务appid"", ""ws_url"": ""wss://openspeech.bytedance.com/api/v3/tts/bidirection"", ""speaker"": ""zh_female_wanwanxiaohe_moon_bigtts"", ""resource_id"": ""volc.service_type.10029"", ""access_token"": ""你的火山引擎语音合成服务access_token""}",https://console.volcengine.com/speech/service/10007,"火山引擎语音合成服务配置说明：
+1. 访问 https://www.volcengine.com/ 注册并开通火山引擎账号
+2. 访问 https://console.volcengine.com/speech/service/10007 开通语音合成大模型，购买音色
+3. 在页面底部获取appid和access_token
+5. 资源ID固定为：volc.service_type.10029（大模型语音合成及混音）
+6. 语速：-50~100，可不填，正常默认值0，可填-50~100
+7. 音量：-50~100，可不填，正常默认值0，可填-50~100
+8. 音高：-12~12，可不填，正常默认值0，可填-12~12
+9. 填入配置文件中",16,,,,
+TTS_IndexStreamTTS,TTS,IndexStreamTTS,Index-TTS-vLLM流式语音合成,0,1,"{""type"": ""index_stream"", ""voice"": ""jay_klee"", ""api_url"": ""http://127.0.0.1:11996/tts"", ""output_dir"": ""tmp/"", ""audio_format"": ""pcm""}",https://github.com/Ksuriuri/index-tts-vllm,"Index-TTS-vLLM流式TTS配置说明：
+1. Index-TTS-vLLM是基于Index-TTS项目的vLLM推理服务，提供流式语音合成功能
+2. 支持多种音色，音质自然，适合各种语音交互场景
+3. 需要先部署Index-TTS-vLLM服务，然后配置API地址
+4. 支持实时流式合成，具有较低的延迟
+5. 支持自定义音色，可在项目assets文件夹下注册新音色
+部署步骤：
+1. 克隆项目：git clone https://github.com/Ksuriuri/index-tts-vllm.git
+2. 安装依赖：pip install -r requirements.txt
+3. 启动服务：python app.py
+4. 服务默认运行在 http://127.0.0.1:11996
+5. 如需其他音色，可到项目assets文件夹下注册
+6. 支持多种音频格式：pcm、wav、mp3等
+如需了解更多配置，请参考：https://github.com/Ksuriuri/index-tts-vllm/blob/master/README.md
+",19,,,,
+TTS_LinkeraiTTS,TTS,LinkeraiTTS,Linkerai语音合成,0,1,"{""type"": ""linkerai"", ""voice"": ""OUeAo1mhq6IBExi"", ""api_url"": ""https://tts.linkerai.cn/tts"", ""access_token"": ""U4YdYXVfpwWnk2t5Gp822zWPCuORyeJL"", ""audio_format"": ""pcm""}",https://tts.linkerai.cn/docs,"Linkerai语音合成服务配置说明：
+1. 访问 https://linkerai.cn 注册并获取访问令牌
+2. 默认的access_token供测试使用，请勿用于商业用途
+3. 支持声音克隆功能，可自行上传音频，填入voice参数
+4. 如果voice参数为空，将使用默认声音",17,,,,
+TTS_MinimaxTTS,TTS,MinimaxTTS,MiniMax语音合成,0,1,"{""type"": ""minimax"", ""model"": ""speech-01-turbo"", ""api_key"": ""你的api_key"", ""group_id"": """", ""voice_id"": ""female-shaonv"", ""output_dir"": ""tmp/""}",https://platform.minimaxi.com/,"MiniMax TTS配置说明：
+1. 需要在MiniMax平台创建账户并充值
+2. 支持多种音色，当前配置使用female-shaonv
+3. 需要网络连接
+4. 输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://platform.minimaxi.com/ 注册账号
+2. 访问 https://platform.minimaxi.com/user-center/payment/balance 充值
+3. 访问 https://platform.minimaxi.com/user-center/basic-information 获取group_id
+4. 访问 https://platform.minimaxi.com/user-center/basic-information/interface-key 获取api_key
+5. 填入配置文件中",8,,,,
+TTS_OpenAITTS,TTS,OpenAITTS,OpenAI语音合成,0,1,"{""type"": ""openai"", ""model"": ""tts-1"", ""speed"": 1, ""voice"": ""onyx"", ""api_key"": ""你的api_key"", ""api_url"": ""https://api.openai.com/v1/audio/speech"", ""output_dir"": ""tmp/""}",https://platform.openai.com/api-keys,"OpenAI TTS配置说明：
+1. 需要在OpenAI平台获取API密钥
+2. 支持多种音色，当前配置使用onyx
+3. 需要网络连接
+4. 输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://platform.openai.com/api-keys 获取API密钥
+2. 填入配置文件中
+注意：国内需要使用代理访问",13,,,,
+TTS_OpenAIRealtime,TTS,OpenAIRealtimeTTS,OpenAI Realtime语音合成,1,1,"{""type"": ""openai_realtime"", ""url"": ""ws://example.localhost:8009/v1/realtime?model=local-matcha-tts"", ""model"": ""local-matcha-tts"", ""voice"": ""alloy"", ""speed"": 1.0, ""sample_rate"": 16000, ""frame_duration"": 60, ""auth_token"": """", ""output_dir"": ""tmp/""}",https://platform.openai.com/docs/api-reference/realtime,"OpenAI Realtime TTS配置说明：
+1. 配合`speech-server`或兼容OpenAI Realtime协议的TTS服务使用
+2. 可通过url的model参数选择服务端模型，voice与speed在会话初始化时同步至服务端
+3. 请保证sample_rate与frame_duration与设备播放链路一致，默认配置为24kHz/20ms
+",0,,,,
+TTS_GoogleGenAI,TTS,GoogleGenAITTS,Gemini Live语音合成,0,1,"{""type"": ""google_genai"", ""backend"": ""gemini"", ""api_key"": """", ""model"": ""gemini-live-2.5-flash-preview"", ""voice"": ""Kore"", ""language_code"": ""zh-CN"", ""api_version"": ""v1alpha"", ""base_url"": """", ""sample_rate"": 24000, ""frame_duration"": 20}",https://ai.google.dev/gemini-api/docs/live,"Google GenAI Live TTS配置说明：
+1. backend 可选 gemini 或 vertex
+2. gemini 需要 api_key，vertex 需要 project 与 location（请在配置中补充）
+3. model 使用 Gemini Live 系列模型
+4. voice 可选预置音色，language_code 可选
+5. sample_rate/frame_duration 用于 Opus 编码参数
+",0,,,,
+TTS_PaddleSpeechTTS,TTS,PaddleSpeechTTS,PaddleSpeechTTS,0,1,"{""url"": ""ws://127.0.0.1:8092/paddlespeech/tts/streaming"", ""type"": ""paddle_speech"", ""speed"": 1.0, ""spk_id"": ""0"", ""volume"": 1.0, ""protocol"": ""websocket"", ""save_path"": ""./streaming_tts.wav"", ""sample_rate"": 24000}",https://github.com/PaddlePaddle/PaddleSpeech,"PaddleSpeechTTS 配置说明：
+1. PaddleSpeech 是百度飞桨开源的语音合成工具，支持本地离线部署和模型训练。paddlepaddle百度飞浆框架地址：https://www.paddlepaddle.org.cn/
+2. 支持 WebSocket 和 HTTP 协议，默认使用 WebSocket 进行流式传输（参考部署文档：https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/paddlespeech-deploy.md）。
+3. 使用前要在本地部署 paddlespeech 服务，服务默认运行在 ws://127.0.0.1:8092/paddlespeech/tts/streaming
+4. 支持自定义发音人、语速、音量和采样率。
+",20,,,,
+TTS_TencentTTS,TTS,TencentTTS,腾讯语音合成,0,1,"{""type"": ""tencent"", ""appid"": """", ""voice"": ""101001"", ""region"": ""ap-guangzhou"", ""secret_id"": """", ""output_dir"": ""tmp/"", ""secret_key"": """"}",https://console.cloud.tencent.com/cam/capi,"腾讯TTS配置说明：
+1. 需要在腾讯云平台开通智能语音交互服务
+2. 支持多种音色，当前配置使用101001
+3. 需要网络连接
+4. 输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://console.cloud.tencent.com/cam/capi 获取密钥
+2. 访问 https://console.cloud.tencent.com/tts/resourcebundle 领取免费资源
+3. 创建新应用
+4. 获取appid、secret_id和secret_key
+5. 填入配置文件中",3,,,,
+TTS_TTS302AI,TTS,TTS302AI,302AI语音合成,0,1,"{""type"": ""doubao"", ""voice"": ""zh_female_wanwanxiaohe_moon_bigtts"", ""api_url"": ""https://api.302ai.cn/doubao/tts_hd"", ""output_dir"": ""tmp/"", ""access_token"": """", ""authorization"": ""Bearer ""}",https://dash.302.ai/,"302AI TTS配置说明：
+1. 需要在302平台创建账户并获取API密钥
+2. 支持多种音色，当前配置使用湾湾小何音色
+3. 需要网络连接
+4. 输出文件保存在tmp/目录
+申请步骤：
+1. 访问 https://dash.302.ai/ 注册账号
+2. 访问 https://dash.302.ai/apis/list 获取API密钥
+3. 填入配置文件中
+价格：$35/百万字符",10,,,,
+TTS_VolcesAiGatewayTTS,TTS,VolcesAiGatewayTTS,火山引擎边缘大模型网关,0,1,"{""type"": ""openai"", ""model"": ""doubao-tts"", ""speed"": 1, ""voice"": ""zh_male_shaonianzixin_moon_bigtts"", ""api_key"": ""你的网关访问密钥"", ""api_url"": ""https://ai-gateway.vei.volces.com/v1/audio/speech"", ""output_dir"": ""tmp/""}",https://console.volcengine.com/vei/aigateway/,"火山引擎边缘大模型网关TTS配置说明：
+1. 访问 https://console.volcengine.com/vei/aigateway/
+2. 创建网关访问密钥，搜索并勾选 Doubao-语音合成
+3. 如果需要使用LLM，一并勾选 Doubao-pro-32k-functioncall
+4. 访问 https://console.volcengine.com/vei/aigateway/tokens-list 获取密钥
+5. 填入配置文件中
+音色列表参考：https://www.volcengine.com/docs/6561/1257544",15,,,,
+VLLM_ChatGLMVLLM,VLLM,ChatGLMVLLM,智谱视觉AI,0,1,"{""type"": ""openai"", ""api_key"": ""${OPENAI_API_KEY}"", ""base_url"": ""https://open.bigmodel.cn/api/paas/v4/"", ""model_name"": ""glm-4v-flash""}",https://bigmodel.cn/usercenter/proj-mgmt/apikeys,"智谱视觉AI配置说明：
+1. 访问 https://bigmodel.cn/usercenter/proj-mgmt/apikeys
+2. 注册并获取API密钥
+3. 填入配置文件中",1,,,,
+VLLM_QwenVLVLLM,VLLM,QwenVLVLLM,通义千问视觉模型,1,1,"{""type"": ""openai"", ""api_key"": ""${OPENAI_API_KEY}"", ""base_url"": ""https://dashscope.aliyuncs.com/compatible-mode/v1"", ""model_name"": ""qwen3-vl-flash""}",https://bailian.console.aliyun.com/?tab=api#/api/?type=model&url=https%3A%2F%2Fhelp.aliyun.com%2Fdocument_detail%2F2845564.html&renderType=iframe,"千问视觉模型配置说明：
+1. 访问 https://bailian.console.aliyun.com/?tab=model#/api-key
+2. 注册并获取API密钥
+3. 填入配置文件中",0,,,,
+EMBEDDING_TongYi,EMBEDDING,PaiEEmbedding,通义向量模型,1,1,"{""type"": ""openai"", ""api_key"": ""你的api_key"", ""base_url"": ""https://dashscope.aliyuncs.com/compatible-mode/v1"", ""model_name"": ""text-embedding-v2""}",https://help.aliyun.com/document_detail/2652398.html,"通义向量模型配置说明：
+1. 登录阿里云灵积平台获取API Key。
+2. 使用 text-embedding-v2 模型时需在控制台开通向量服务。
+3. base_url 为 DashScope 兼容模式接口。
+4. 将配置同步到 embeddings tab 后即可在知识库使用。",5,,,,
+TTS_ElevenLabs,TTS,ElevenLabsTTS,ElevenLabs语音合成,0,1,"{""type"": ""elevenlabs"", ""api_key"": """", ""voice_id"": ""JBFqnCBsd6RMkjVDRZzb"", ""model_id"": ""eleven_multilingual_v2"", ""output_format"": ""mp3_44100_128"", ""optimize_streaming_latency"": 0, ""region"": """", ""base_url"": """", ""timeout_seconds"": 120}",https://elevenlabs.io/docs/api-reference/text-to-speech,使用 ElevenLabs streaming TTS，需要有效 api_key 与 voice_id，output_format 建议保持 mp3_44100_128，latency 优化 0-4 可按需调整。,0,,,,
+ASR_ElevenLabs,ASR,ElevenLabsASR,ElevenLabs语音识别,0,1,"{""type"": ""elevenlabs"", ""api_key"": """", ""model_id"": ""scribe_v1"", ""language_code"": """", ""file_format"": ""pcm_s16le_16"", ""sample_rate"": 16000, ""timestamps_granularity"": ""word"", ""region"": """", ""base_url"": """", ""timeout_seconds"": 60}",https://elevenlabs.io/docs/api-reference/speech-to-text,使用 ElevenLabs scribe STT，上传 pcm_s16le_16 音频；language_code 留空自动检测。,0,,,,
+IMAGE_QwenImageMax,IMAGE,QwenImageMax,阿里百炼 Qwen-Image,1,1,"{""type"": ""dashscope"", ""model"": ""qwen-image-max"", ""base_url"": ""https://dashscope.aliyuncs.com/api/v1"", ""api_key"": ""${DASHSCOPE_API_KEY}"", ""capabilities"": ""text_to_image,image_edit"", ""size"": ""1664*928"", ""prompt_extend"": true, ""watermark"": false, ""negative_prompt"": """"}",https://help.aliyun.com/zh/dashscope/,"阿里百炼 Qwen-Image 生图配置示例，支持文生图与图像编辑调用参数透传。",1,,,,
+IMAGE_QwenImageEdit,IMAGE,QwenImageEdit,阿里百炼 Qwen-Image-Edit,0,1,"{""type"": ""dashscope"", ""model"": ""qwen-image-edit"", ""base_url"": ""https://dashscope.aliyuncs.com/api/v1"", ""api_key"": ""${DASHSCOPE_API_KEY}"", ""capabilities"": ""image_edit"", ""size"": ""1024*1024"", ""prompt_extend"": true, ""watermark"": false, ""negative_prompt"": """"}",https://help.aliyun.com/zh/model-studio/qwen-image-edit-api,"阿里百炼 Qwen-Image-Edit 图像编辑模型示例，适用于对已有图片进行内容与风格修改。",2,,,,
+VIDEO_Wan2_6T2V,VIDEO,Wan2.6T2V,阿里百练 万象视频,1,1,"{""type"": ""dashscope"", ""model"": ""wan2.6-t2v"", ""base_url"": ""https://dashscope.aliyuncs.com/api/v1"", ""request_path"": ""/services/aigc/video-generation/video-synthesis"", ""task_path"": ""/tasks/%s"", ""api_key"": ""${DASHSCOPE_API_KEY}"", ""size"": ""1280*720"", ""duration"": 10, ""shot_type"": ""multi"", ""prompt_extend"": true, ""capabilities"": ""text_to_video,audio_guided"", ""timeout"": 120, ""poll_interval_seconds"": 5, ""poll_timeout_seconds"": 180}",https://help.aliyun.com/zh/model-studio/video-generation/wan2-6-text-to-video-api,"阿里百练万象视频模型配置示例，支持文生视频与音频驱动参数透传。",3,,,,

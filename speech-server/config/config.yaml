@@ -1,0 +1,174 @@
+models:
+  auto_download: true
+  git_repo: https://www.modelscope.cn/gomodels/sherpa.git
+  git_ref: ""
+  target_dir: ./models
+
+server:
+  addr: ":8009"
+
+log:
+  level: "info"
+  stdout: true
+  file:
+    enabled: true
+    path: "./logs"
+    name: "speech-server.log"
+    max_size_mb: 100
+    max_backups: 5
+    max_age_days: 30
+    compress: true
+
+asr:
+  provider: sense_voice
+  models:
+    sense_voice:
+      model_dir: ./models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
+      model_type: sense_voice
+      model_variant: auto       # auto|int8|fp32，auto 表示优先使用 int8，缺失则回退 FP32
+      decoding_method: greedy_search   # sense-voice 目前仅支持 greedy_search
+      threads: 0                # 0 表示自动根据 CPU 核数设置
+      provider: ""              # 留空自动探测（cuda > coreml > cpu）
+      debug_level: 1
+      sample_rate: 16000
+      max_active_paths: 12
+      enable_endpoint: true
+      language: auto
+      use_itn: true
+      language_guard:
+        enabled: true
+        default_hint: zh,en,ja
+        max_mismatch_duration: 0.5
+        max_mismatch_characters: 2
+
+tts:
+  provider: "matcha_tts_zh_en_20251010"
+  #provider: "zipvoice_emilia"
+  models:
+    matcha:
+      acoustic_model: ./models/matcha-icefall-zh-baker/model-steps-3.onnx
+      vocoder_model: ./models/matcha-icefall-zh-baker/vocos-22khz-univ.onnx
+      lexicon: ./models/matcha-icefall-zh-baker/lexicon.txt
+      tokens: ./models/matcha-icefall-zh-baker/tokens.txt
+      cn2an_enabled: true
+      espeak_dir: ""
+      threads: 0
+      provider: cpu
+      debug_level: 1
+      noise_scale: 0.667
+      length_scale: 1.0
+      voice_map: "alloy:0"
+      default_voice: alloy
+      default_speed: 1.0
+    matcha_tts_zh_en_20251010:
+      acoustic_model: ./models/matcha_tts_zh_en_20251010/model-steps-6.onnx
+      vocoder_model: ./models/matcha_tts_zh_en_20251010/vocos-16khz-univ.onnx
+      lexicon: ./models/matcha_tts_zh_en_20251010/lexicon.txt
+      tokens: ./models/matcha_tts_zh_en_20251010/tokens.txt
+      cn2an_enabled: false
+      espeak_dir: ./models/matcha_tts_zh_en_20251010/espeak-ng-data
+      threads: 0
+      provider: cpu
+      debug_level: 1
+      noise_scale: 0.667
+      length_scale: 1.0
+      voice_map: "warm_female:0,alloy:0"
+      default_voice: alloy
+      default_speed: 1.0
+    kokoro_multi_lang_v1_1:
+      engine: kokoro
+      kokoro_model: ./models/kokoro-int8-multi-lang-v1_1/model.int8.onnx
+      kokoro_voices: ./models/kokoro-int8-multi-lang-v1_1/voices.bin
+      kokoro_tokens: ./models/kokoro-int8-multi-lang-v1_1/tokens.txt
+      kokoro_data_dir: ./models/kokoro-int8-multi-lang-v1_1/espeak-ng-data
+      kokoro_lexicon: ./models/kokoro-int8-multi-lang-v1_1/lexicon-us-en.txt,./models/kokoro-int8-multi-lang-v1_1/lexicon-zh.txt
+      kokoro_lang: ""
+      threads: 0
+      provider: cpu
+      debug_level: 1
+      length_scale: 1.0
+      voice_map: "alloy:3,zf_036:22,zf_038_baby:23"
+      default_voice: alloy
+      default_speed: 1.2
+    zipvoice_emilia:
+      engine: zipvoice
+      zipvoice_tokens: ./models/sherpa-onnx-zipvoice-distill-zh-en-emilia/tokens.txt
+      zipvoice_text_model: ./models/sherpa-onnx-zipvoice-distill-zh-en-emilia/text_encoder.onnx
+      zipvoice_flow_matching_model: ./models/sherpa-onnx-zipvoice-distill-zh-en-emilia/fm_decoder.onnx
+      zipvoice_data_dir: ./models/sherpa-onnx-zipvoice-distill-zh-en-emilia/espeak-ng-data
+      zipvoice_pinyin_dict: ./models/sherpa-onnx-zipvoice-distill-zh-en-emilia/pinyin.raw
+      zipvoice_vocoder: ./models/sherpa-onnx-zipvoice-distill-zh-en-emilia/vocos_24khz.onnx
+      zipvoice_feat_scale: 0.1
+      zipvoice_t_shift: 0.5
+      zipvoice_target_rms: 0.1
+      zipvoice_guidance_scale: 1.0
+      zipvoice_num_steps: 4
+      zipvoice_prompts:
+        alloy1:
+          audio: ./models/sherpa-onnx-zipvoice-distill-zh-en-emilia/1.wav
+          text: "哈，你又在看那本地方县志啊，您不是都已经看过七八遍，早都烂熟于心了吗，有什么好看的。"
+          num_steps: 4
+        alloy:
+          audio: ./models/sherpa-onnx-zipvoice-distill-zh-en-emilia/prompt.wav
+          text: "周日被我射熄火了，所以今天是周一。"
+          num_steps: 4
+      threads: 0
+      provider: cpu
+      debug_level: 1
+      voice_map: "alloy:0,alloy1:1"
+      default_voice: alloy
+      default_speed: 1.0
+
+vad:
+  enabled: true
+  provider: silero
+  models:
+    silero:
+      provider: silero
+      model: ./models/vad/silero_vad.onnx
+      threshold: 0.6           # 提高到0.6，更严格地检测语音（原0.5）
+      min_silence: 0.5         # 保持0.5秒静音判定
+      min_speech: 0.25         # 提高到0.25秒，过滤掉更短的噪音片段（原0.1）
+      max_speech: 20.0
+      window_size: 512
+      sample_rate: 16000
+      threads: 0
+      device: cpu
+      buffer_seconds: 5.0
+    ten:
+      provider: ten
+      model: ./models/vad/ten_vad.onnx
+      threshold: 0.6           # 提高到0.6（原0.5）
+      min_silence: 0.5         # 保持0.5秒静音判定
+      min_speech: 0.25         # 提高到0.25秒（原0.1）
+      max_speech: 15.0
+      window_size: 16
+      sample_rate: 16000
+      threads: 0
+      device: cpu
+      buffer_seconds: 5.0
+  pool:
+    min_size: 1
+    max_size: 6
+    acquire_timeout_ms: 3000
+
+# 音频质量过滤配置 - 用于过滤噪音和过短的音频
+audio_filtering:
+  energy_threshold: 0.003    # RMS能量阈值（0.001-0.1），低于此值认为是静音/噪音
+  min_duration: 0.3          # 最小音频时长（秒），短于此值的音频将被过滤
+
+speaker:
+  enabled: false
+  model_path: ./models/speaker/3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx
+  sample_rate: 16000
+  num_threads: 0
+  provider: cpu
+  threshold: 0.65
+  min_duration: 0.4
+  energy_threshold: 0.003
+  data_dir: ./data/speaker
+  vector_db:
+    provider: chromem
+    chromem:
+      path: ./data/speaker_index
+      compress: false

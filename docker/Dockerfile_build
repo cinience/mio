@@ -1,0 +1,32 @@
+FROM registry.cn-shanghai.aliyuncs.com/dapp/xiaozhi:ubuntu-runtime-base AS builder
+
+WORKDIR /app
+
+ENV GOVERSION=1.25.0
+ARG NODE_MAJOR=22
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libopus-dev \
+    libopusfile-dev \
+    git \
+    ca-certificates \
+    curl \
+    gnupg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN wget -q -O go.tgz https://mirrors.aliyun.com/golang/go${GOVERSION}.linux-amd64.tar.gz && rm -rf /usr/local/go && tar -C /usr/local -xzf go.tgz
+# 设置 Go 代理
+ENV GOPROXY=https://goproxy.cn,direct
+ENV CGO_ENABLED=1
+# 设置 CGO 环境变量，让 Go 能找到 ONNX Runtime 头文件和库
+ENV CGO_CFLAGS="-I/usr/local/include/onnxruntime"
+ENV CGO_LDFLAGS="-L/usr/local/lib -lonnxruntime"
+ENV PATH=/usr/local/go/bin:$PATH

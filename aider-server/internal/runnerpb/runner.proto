@@ -1,0 +1,120 @@
+syntax = "proto3";
+
+package aider.runner.v1;
+
+option go_package = "aider-server/internal/runnerpb;runnerpb";
+
+service RunnerControl {
+  rpc Connect(stream RunnerMessage) returns (stream ServerMessage);
+}
+
+message RunnerHello {
+  string runner_id = 1;
+  string version = 2;
+  repeated TaskBrief tasks = 3;
+  map<string, int64> last_seq_by_task = 4;
+  int64 heartbeat_interval_ms = 5;
+}
+
+message TaskBrief {
+  string task_id = 1;
+  TaskStatus status = 2;
+}
+
+message Heartbeat {
+  int64 ts_unix_ms = 1;
+  int64 inflight_bytes = 2;
+}
+
+message TaskStatusEvent {
+  string task_id = 1;
+  TaskStatus status = 2;
+  int32 exit_code = 3;
+  string error = 4;
+  int64 ts_unix_ms = 5;
+}
+
+message LogBatch {
+  string task_id = 1;
+  int64 seq_start = 2;
+  repeated string lines = 3;
+  int64 ts_unix_ms = 4;
+}
+
+message TerminalOutput {
+  string task_id = 1;
+  bytes data = 2;
+  int64 ts_unix_ms = 3;
+}
+
+message RunnerMessage {
+  oneof msg {
+    RunnerHello hello = 1;
+    Heartbeat heartbeat = 2;
+    TaskStatusEvent status = 3;
+    LogBatch logs = 4;
+    TerminalOutput terminal = 5;
+  }
+}
+
+message TaskSpec {
+  string task_id = 1;
+  string command = 2;
+  repeated string args = 3;
+  map<string, string> env = 4;
+  string work_dir = 5;
+  map<string, string> labels = 6;
+}
+
+message StartTaskCommand {
+  TaskSpec task = 1;
+}
+
+message InterruptTaskCommand {
+  string task_id = 1;
+  int32 signal = 2;
+}
+
+message SendInputCommand {
+  string task_id = 1;
+  bytes input = 2;
+}
+
+message ResizeTerminalCommand {
+  string task_id = 1;
+  int32 cols = 2;
+  int32 rows = 3;
+}
+
+message FlowControl {
+  string task_id = 1;
+  int64 ack_seq = 2;
+  int64 window_bytes = 3;
+  bool pause = 4;
+}
+
+message ServerMessage {
+  oneof msg {
+    StartTaskCommand start = 1;
+    InterruptTaskCommand interrupt = 2;
+    SendInputCommand input = 3;
+    FlowControl flow = 4;
+    LogBackfillRequest backfill = 5;
+    ResizeTerminalCommand resize = 6;
+  }
+}
+
+message LogBackfillRequest {
+  string task_id = 1;
+  int64 from_seq = 2;
+  int64 limit = 3;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_PENDING = 1;
+  TASK_STATUS_RUNNING = 2;
+  TASK_STATUS_COMPLETED = 3;
+  TASK_STATUS_FAILED = 4;
+  TASK_STATUS_INTERRUPTED = 5;
+}

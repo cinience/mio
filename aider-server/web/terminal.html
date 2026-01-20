@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>aider-server 交互终端</title>
+  <link rel="stylesheet" href="/vendor/xterm/xterm.min.css" />
+  <style>
+    :root {
+      --bg: #f7f1e8;
+      --panel: #ffffff;
+      --ink: #1b1b1b;
+      --muted: #5c5c5c;
+      --accent: #e86a33;
+      --shadow: 0 24px 60px rgba(27, 27, 27, 0.12);
+      --radius: 18px;
+      --radius-sm: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(232, 106, 51, 0.18), transparent 50%),
+        linear-gradient(130deg, #f9f2e7 0%, #f7f1e8 40%, #f3e9dc 100%);
+      color: var(--ink);
+      padding: 24px;
+    }
+
+    .shell {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(26px, 3vw, 34px);
+    }
+
+    section {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid #e0d7ce;
+      background: #faf7f2;
+      font-size: 14px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    button.secondary {
+      background: #f1ece6;
+      color: var(--ink);
+      border: 1px solid #e3d8cd;
+    }
+
+    .terminal-panel {
+      flex: 1;
+      display: flex;
+      padding: 12px;
+    }
+
+    .terminal-shell {
+      background: #0f1a1f;
+      border-radius: 16px;
+      padding: 8px;
+      width: 100%;
+      height: 100%;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .toast-root {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: grid;
+      gap: 8px;
+      z-index: 9999;
+    }
+
+    .toast {
+      background: #1b1b1b;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(-6px);
+      animation: toast-in 0.2s ease forwards;
+    }
+
+    .toast.error {
+      background: #b42318;
+    }
+
+    .toast.hide {
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    @keyframes toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>任务交互终端</h1>
+        <div id="task-title"></div>
+      </div>
+      <a href="/">返回列表</a>
+    </header>
+
+    <section>
+      <div class="row">
+        <div>
+          <label for="task-id">任务 ID</label>
+          <input id="task-id" placeholder="task id" />
+        </div>
+        <div>
+          <label for="token">Token（可选）</label>
+          <input id="token" placeholder="Bearer token" />
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="connect">连接终端</button>
+        <button class="secondary" id="disconnect">断开连接</button>
+        <button class="secondary" id="interrupt">中断任务</button>
+      </div>
+      <div class="hint">提示：终端连接使用 WebSocket，任务需处于 running 状态。</div>
+    </section>
+
+    <section class="terminal-panel">
+      <div class="terminal-shell" id="terminal"></div>
+    </section>
+  </div>
+  <div class="toast-root" id="toast-root" aria-live="polite"></div>
+
+  <script src="/vendor/xterm/xterm.min.js"></script>
+  <script src="/vendor/xterm/xterm-addon-fit.min.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const taskIdInput = document.getElementById("task-id");
+    const tokenInput = document.getElementById("token");
+    const title = document.getElementById("task-title");
+    const terminalHost = document.getElementById("terminal");
+    const toastRoot = document.getElementById("toast-root");
+
+    taskIdInput.value = params.get("taskId") || "";
+    tokenInput.value = params.get("token") || localStorage.getItem("aider-token") || "";
+    if (params.get("token")) {
+      localStorage.setItem("aider-token", tokenInput.value.trim());
+    }
+    if (taskIdInput.value) {
+      title.textContent = `任务: ${taskIdInput.value}`;
+    }
+
+    let ws = null;
+    let closeByUser = false;
+    let cursor = 0;
+    const textEncoder = new TextEncoder();
+
+    function showToast(message, variant = "error") {
+      if (!message || !toastRoot) return;
+      const toast = document.createElement("div");
+      toast.className = `toast ${variant}`;
+      toast.textContent = message;
+      toastRoot.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add("hide");
+        toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+      }, 2600);
+    }
+
+    function initTerminal() {
+      if (typeof Terminal === "undefined") {
+        terminalHost.textContent = "终端组件未加载（xterm.js 缺失）。";
+        return { write: () => {}, onData: () => {} };
+      }
+      const term = new Terminal({
+        cursorBlink: true,
+        fontFamily: "SFMono-Regular, Consolas, Liberation Mono, monospace",
+        fontSize: 13,
+        theme: { background: "#0f1a1f" }
+      });
+      let fitAddon = null;
+      if (typeof FitAddon !== "undefined" && FitAddon.FitAddon) {
+        fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+      }
+      term.open(terminalHost);
+      if (fitAddon) {
+        fitAddon.fit();
+      }
+      return { term, fitAddon };
+    }
+
+    const terminalSession = initTerminal();
+    const term = terminalSession.term || { write: () => {}, onData: () => {}, focus: () => {} };
+    const fitAddon = terminalSession.fitAddon;
+    const utf8Decoder = new TextDecoder("utf-8");
+
+    function connect() {
+      const taskId = taskIdInput.value.trim();
+      if (!taskId) {
+        showToast("请输入任务 ID");
+        return;
+      }
+      const token = tokenInput.value.trim();
+      if (token) {
+        localStorage.setItem("aider-token", token);
+      }
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      closeByUser = false;
+      cursor = Number(localStorage.getItem(`terminal-cursor-${taskId}`) || 0);
+      const protocol = location.protocol === "https:" ? "wss" : "ws";
+      const url = new URL(`${protocol}://${location.host}/api/v1/tasks/${taskId}/terminal`);
+      if (token) {
+        url.searchParams.set("token", token);
+      }
+      if (cursor > 0) {
+        url.searchParams.set("cursor", String(cursor));
+      }
+      ws = new WebSocket(url.toString());
+      ws.binaryType = "arraybuffer";
+      ws.onopen = () => {
+        term.write("\r\n\x1b[32m[terminal connected]\x1b[0m\r\n");
+        if (term.focus) term.focus();
+        sendResize();
+      };
+      ws.onmessage = (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          const bytes = new Uint8Array(event.data);
+          term.write(utf8Decoder.decode(bytes, { stream: true }));
+          cursor += bytes.length;
+          localStorage.setItem(`terminal-cursor-${taskIdInput.value.trim()}`, String(cursor));
+        } else {
+          if (typeof event.data === "string") {
+            term.write(event.data);
+            cursor += textEncoder.encode(event.data).length;
+            localStorage.setItem(`terminal-cursor-${taskIdInput.value.trim()}`, String(cursor));
+          }
+        }
+      };
+      ws.onerror = () => {
+        showToast("终端连接失败");
+      };
+      ws.onclose = () => {
+        term.write("\r\n\x1b[33m[terminal disconnected]\x1b[0m\r\n");
+        if (!closeByUser) {
+          showToast("终端连接已断开");
+        }
+        closeByUser = false;
+      };
+    }
+
+    function disconnect() {
+      if (ws) {
+        closeByUser = true;
+        ws.close();
+        ws = null;
+      }
+    }
+
+    async function interrupt() {
+      const taskId = taskIdInput.value.trim();
+      if (!taskId) {
+        showToast("请输入任务 ID");
+        return;
+      }
+      try {
+        const res = await fetch(`/api/v1/tasks/${taskId}/interrupt`, { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "中断失败");
+        if (data.error) throw new Error(data.error);
+        term.write(`\r\n[interrupted] ${data.id}\r\n`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err || "中断失败");
+        term.write(`\r\n[interrupt failed] ${message}\r\n`);
+        showToast(message);
+      }
+    }
+
+    if (term && term.onData) {
+      term.onData((data) => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(textEncoder.encode(data));
+        }
+      });
+    }
+    if (term && term.onResize) {
+      term.onResize(() => {
+        sendResize();
+      });
+    }
+
+    document.getElementById("connect").addEventListener("click", connect);
+    document.getElementById("disconnect").addEventListener("click", disconnect);
+    document.getElementById("interrupt").addEventListener("click", interrupt);
+
+    window.addEventListener("resize", () => {
+      if (fitAddon) fitAddon.fit();
+      sendResize();
+    });
+
+    function sendResize() {
+      if (!ws || ws.readyState !== WebSocket.OPEN || !term) return;
+      ws.send(JSON.stringify({ type: "resize", cols: term.cols || 0, rows: term.rows || 0 }));
+    }
+
+    if (taskIdInput.value) {
+      connect();
+    }
+  </script>
+</body>
+</html>

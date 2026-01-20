@@ -28,5 +28,55 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+
+backend-server/server
+backend-server/backend-server
+backend-server/backend-server.exe
+backend-server/mqtt
+manager-server/server
+manager-server/manager-server
+manager-server/manager-server.exe
+aio-server/server
+aio-server/storage
+
+backend-server/logs
+manager-server/logs
+aio-server/logs/
+
+desktop-app/xiaozhi-desktop/frontend/node_modules
+#desktop-app/xiaozhi-desktop/frontend/dist
+desktop-app/xiaozhi-desktop/build 
+desktop-app/dist
+web/manager-console/node_modules
+web/manager-console/dist
+web/manager-web/node_modules
+web/manager-web/dist
+web/manager-mobile/node_modules
+web/manager-mobile/dist
+web/manager-web/.webpack_cache
+web/show/node_modules
+web/show/dist
+node_modules
+desktop-app/pet-companion/frontend/node_modules
+desktop-app/pet-companion/frontend/dist
+desktop-app/pet-companion/pet-companion
+tests
+example
+logs
+./data
+db
+db/manager-server.db
+manager-server/manager-server.db*
+aio-server/manager-server.db*
+speech-server/server
+speech-server/client
+speech-server/models
+onnxruntime-win-x64-1.23.1.zip
+onnxruntime-win-x64-1.23.1
+speech-server/models/
+aio-server/models/
+other/
+web/vtuber/node_modules/
+web/vtuber/dist/
